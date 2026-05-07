@@ -793,6 +793,15 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
 // ==================== CONFIG ====================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbx7faYXlGHmr2OPfCgtX_B8B6CEeysVEUXHlTZo1ssDQi0B6greYxH98WkDr98T6TOy/exec';
 
+// 自動計算民國年（當年1-6月視為上半年，預設當前學年）
+const _now = new Date();
+const _rocYear = _now.getFullYear() - 1911;
+// 上半年(1-6月)用當年，下半年(7-12月)用當年（整年制）
+const DEFAULT_YEAR = String(_rocYear);
+const AVAILABLE_YEARS = ['114', '115', '116', '117'].includes(DEFAULT_YEAR)
+  ? [...new Set(['114', DEFAULT_YEAR])].sort()
+  : ['114', DEFAULT_YEAR];
+
 // ==================== UNIT MAP ====================
 const UNIT_MAP = {
   '第一大隊': {
@@ -951,10 +960,14 @@ async function saveToGAS() {
 }
 
 // ==================== YEARS ====================
-const YEARS = ['112','113','114','115','116'];
+// 動態產生年份清單（民國108起到當前年+1）
+const _baseYear = 108;
+const _maxYear = _rocYear + 1;
+const YEARS = Array.from({length: _maxYear - _baseYear + 1}, (_, i) => String(_baseYear + i));
 
 function populateYearSelect(el, defaultVal) {
-  el.innerHTML = YEARS.map(y => `<option value="${y}" ${y===defaultVal?'selected':''}>${y}</option>`).join('');
+  const def = defaultVal || DEFAULT_YEAR;
+  el.innerHTML = YEARS.map(y => `<option value="${y}" ${y===def?'selected':''}>${y}</option>`).join('');
 }
 
 function populateBrigadeSelect(el, withAll) {
@@ -1397,7 +1410,7 @@ function openAddModal(id) {
   document.getElementById('modal-title').textContent = id ? '編輯人員' : '新增人員';
   // Populate year
   const fyear = document.getElementById('f-year');
-  populateYearSelect(fyear, '114');
+  populateYearSelect(fyear, DEFAULT_YEAR);
   // Populate brigade
   const fb = document.getElementById('f-brigade');
   populateBrigadeSelect(fb, false);
@@ -1414,7 +1427,7 @@ function openAddModal(id) {
   if (id) {
     const r = records.find(x => x.id === id);
     if (r) {
-      fyear.value = r.year || '114';
+      fyear.value = r.year || DEFAULT_YEAR;
       fb.value = r.brigade;
       populateUnitSelect(fu, r.brigade);
       if (fu.options[0]?.value === 'all') fu.remove(0);
@@ -1503,7 +1516,7 @@ function importExcel(file) {
       let ws = wb.Sheets['成績輸入'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1 });
       let imported = 0, skipped = 0;
-      const currentYear = document.getElementById('rec-year').value || '114';
+      const currentYear = document.getElementById('rec-year').value || DEFAULT_YEAR;
       for (let i=1; i<rows.length; i++) {
         const row = rows[i];
         if (!row || !row[3]) { skipped++; continue; }
@@ -1584,7 +1597,7 @@ function init() {
 
   // Populate year/brigade selects
   ['dash-year','rec-year','res-year','ana-year'].forEach(id => {
-    populateYearSelect(document.getElementById(id), '114');
+    populateYearSelect(document.getElementById(id), DEFAULT_YEAR);
   });
   ['dash-brigade','rec-brigade','res-brigade','ana-brigade'].forEach(id => {
     populateBrigadeSelect(document.getElementById(id), true);
