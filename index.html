@@ -708,7 +708,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group">
-          <label>年份 (民國)</label>
+          <label>年度 / 學期</label>
           <select id="f-year"></select>
         </div>
         <div class="form-group">
@@ -929,28 +929,65 @@ function uuid() {
 }
 
 // ==================== GAS ====================
-async function loadFromGAS(year, semester) {
+function loadFromGAS(year, semester) {
   if (!GAS_URL) return;
-  try {
-    showToast('從 GSheet 載入中…', 'info');
-    const params = new URLSearchParams({action:'load'});
-    if (year) params.set('year', year);
-    if (semester) params.set('semester', semester);
-    const resp = await fetch(GAS_URL + '?' + params);
-    const data = await resp.json();
-    if (data.ok && Array.isArray(data.records)) {
+  showToast('從 GSheet 載入中…', 'info');
+  const params = new URLSearchParams({action: 'load'});
+  if (year) params.set('year', year);
+  if (semester) params.set('semester', semester);
+
+  // Use JSONP to bypass CORS restrictions on GAS web apps
+  const cbName = '_gasCallback_' + Date.now();
+  const script = document.createElement('script');
+  const timeoutId = setTimeout(() => {
+    script.remove();
+    delete window[cbName];
+    showToast('同步逾時，請確認 GAS 設定', 'error');
+  }, 15000);
+
+  window[cbName] = function(data) {
+    clearTimeout(timeoutId);
+    script.remove();
+    delete window[cbName];
+    if (data && data.ok && Array.isArray(data.records)) {
       // 合併：GSheet 資料覆蓋本地同 id
       const map = {};
-      records.forEach(r => map[r.id] = r);
-      data.records.forEach(r => map[r.id] = r);
+      records.forEach(r => { map[r.id] = r; });
+      data.records.forEach(r => { map[r.id] = r; });
       records = Object.values(map);
       saveData();
-      showToast(`已從 GSheet 同步 ${data.records.length} 筆`, 'success');
+      showToast('已從 GSheet 同步 ' + data.records.length + ' 筆', 'success');
       refreshAll();
     } else {
-      showToast('同步失敗: ' + (data.error || '格式錯誤'), 'error');
+      showToast('同步失敗: ' + (data && data.error ? data.error : '格式錯誤'), 'error');
     }
-  } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
+  };
+
+  params.set('callback', cbName);
+  script.src = GAS_URL + '?' + params.toString();
+  script.onerror = () => {
+    clearTimeout(timeoutId);
+    script.remove();
+    delete window[cbName];
+    // Fallback: try plain fetch (works if GAS CORS is properly configured)
+    fetch(GAS_URL + '?' + new URLSearchParams({action:'load', year: year||'', semester: semester||''}), {mode: 'cors'})
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.ok && Array.isArray(data.records)) {
+          const map = {};
+          records.forEach(r => { map[r.id] = r; });
+          data.records.forEach(r => { map[r.id] = r; });
+          records = Object.values(map);
+          saveData();
+          showToast('已從 GSheet 同步 ' + data.records.length + ' 筆', 'success');
+          refreshAll();
+        } else {
+          showToast('同步失敗: ' + (data && data.error ? data.error : '格式錯誤'), 'error');
+        }
+      })
+      .catch(e => showToast('同步失敗: ' + e.message, 'error'));
+  };
+  document.head.appendChild(script);
 }
 
 async function saveToGAS(year, semester) {
@@ -961,13 +998,18 @@ async function saveToGAS(year, semester) {
       (!year || String(r.year) === String(year)) &&
       (!semester || r.semester === semester)
     );
+    // Use URLSearchParams (form-encoded) instead of JSON to avoid CORS preflight issues
+    const body = new URLSearchParams();
+    body.set('action', 'save');
+    body.set('year', year || '');
+    body.set('semester', semester || '');
+    body.set('records', JSON.stringify(toSave));
     const resp = await fetch(GAS_URL, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action:'save', year, semester, records: toSave})
+      body: body
     });
     const data = await resp.json();
-    if (data.ok) showToast(`已同步 ${data.saved} 筆至 GSheet`, 'success');
+    if (data.ok) showToast('已同步 ' + data.saved + ' 筆至 GSheet', 'success');
     else showToast('同步失敗: ' + (data.error||''), 'error');
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
 }
@@ -1091,10 +1133,10 @@ function renderPagination(containerId, total, current, onPage) {
 // ==================== FILTER UTILS ====================
 function filterRecords(year, brigade, unit, search, semester) {
   return records.filter(r => {
-    if (year && year !== 'all' && String(r.year) !== String(year)) return false;
-    if (semester && semester !== 'all' && r.semester !== semester) return false;
-    if (brigade && brigade !== 'all' && r.brigade !== brigade) return false;
-    if (unit && unit !== 'all' && r.unit !== unit) return false;
+    if (year && year !== 'all' && year !== '' && String(r.year) !== String(year)) return false;
+    if (semester && semester !== 'all' && semester !== '' && r.semester !== semester) return false;
+    if (brigade && brigade !== 'all' && brigade !== '' && r.brigade !== brigade) return false;
+    if (unit && unit !== 'all' && unit !== '' && r.unit !== unit) return false;
     if (search && search.trim() && !r.name.includes(search.trim())) return false;
     return true;
   });
@@ -1366,7 +1408,7 @@ function renderAnalysisSub(tab) {
   }
 
   if (tab === 'compare') {
-    const allRecords = year === 'all' ? records : records.filter(r=>r.year===year);
+    const allRecords = (!year || year === 'all') ? records : records.filter(r=>String(r.year)===String(year));
     const data = BRIGADES.map(b => {
       const sub = allRecords.filter(r => r.brigade === b);
       const pass = sub.filter(r => calcRecord(r).pass).length;
@@ -1456,9 +1498,11 @@ function openAddModal(id) {
   editingId = id || null;
   const modal = document.getElementById('modal-person');
   document.getElementById('modal-title').textContent = id ? '編輯人員' : '新增人員';
-  // Populate year
+  // Populate year — default to current records page period
   const fyear = document.getElementById('f-year');
-  populateYearSelect(fyear, DEFAULT_YEAR);
+  const recPeriodEl = document.getElementById('rec-period');
+  const defaultPeriodForModal = (recPeriodEl && recPeriodEl.value) ? recPeriodEl.value : DEFAULT_PERIOD;
+  populatePeriodSelect(fyear, defaultPeriodForModal, false);
   // Populate brigade
   const fb = document.getElementById('f-brigade');
   populateBrigadeSelect(fb, false);
@@ -1514,8 +1558,10 @@ function savePersonModal() {
   const age = parseInt(document.getElementById('f-age').value);
   const n = v => { const x=parseFloat(document.getElementById('f-'+v).value); return isNaN(x)?null:x; };
 
+  const {year: recYear, semester: recSemester} = parsePeriod(document.getElementById('f-year').value);
   const data = {
-    year: document.getElementById('f-year').value,
+    year: recYear || DEFAULT_YEAR,
+    semester: recSemester || '上半年',
     brigade: document.getElementById('f-brigade').value,
     unit: document.getElementById('f-unit').value,
     name,
@@ -1564,15 +1610,17 @@ function importExcel(file) {
       let ws = wb.Sheets['成績輸入'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1 });
       let imported = 0, skipped = 0;
-      const currentYear = parsePeriod(document.getElementById('rec-period').value).year || DEFAULT_YEAR;
+      const {year: currentYear, semester: currentSemester} = parsePeriod(document.getElementById('rec-period').value);
+      const importYear = currentYear || DEFAULT_YEAR;
+      const importSemester = currentSemester || parsePeriod(DEFAULT_PERIOD).semester;
       for (let i=1; i<rows.length; i++) {
         const row = rows[i];
         if (!row || !row[3]) { skipped++; continue; }
         const age = parseInt(row[5]);
         const rec = {
           id: uuid(),
-          year: currentYear,
-          semester: currentSemester,
+          year: importYear,
+          semester: importSemester,
           brigade: String(row[1]||'').trim(),
           unit: String(row[2]||'').trim(),
           name: String(row[3]||'').trim(),
@@ -1629,7 +1677,8 @@ function exportExcel() {
   const ws2 = XLSX.utils.aoa_to_sheet([resHeaders, ...resData]);
   XLSX.utils.book_append_sheet(wb, ws1, '成績輸入');
   XLSX.utils.book_append_sheet(wb, ws2, '換算結果');
-  XLSX.writeFile(wb, `台北消防局體能成績_${year}.xlsx`);
+  const exportPeriodLabel = semester ? `${year}年${semester}` : (year || '全部');
+  XLSX.writeFile(wb, `台北消防局體能成績_${exportPeriodLabel}.xlsx`);
   showToast('匯出成功', 'success');
 }
 
@@ -1671,12 +1720,12 @@ function init() {
 
   // Results filter events
   const resRefresh = () => { resPage=1; renderResults(); };
-  document.getElementById('res-year').onchange = resRefresh;
+  document.getElementById('res-period').onchange = resRefresh;
   document.getElementById('res-brigade').onchange = resRefresh;
   document.getElementById('res-status').onchange = resRefresh;
 
   // Analysis filter events
-  document.getElementById('ana-year').onchange = renderAnalysis;
+  document.getElementById('ana-period').onchange = renderAnalysis;
   document.getElementById('ana-brigade').onchange = renderAnalysis;
 
   // Formula events
