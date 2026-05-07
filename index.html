@@ -929,28 +929,16 @@ function uuid() {
 }
 
 // ==================== GAS ====================
-function loadFromGAS(year, semester) {
+async function loadFromGAS(year, semester) {
   if (!GAS_URL) return;
   showToast('從 GSheet 載入中…', 'info');
-  const params = new URLSearchParams({action: 'load'});
-  if (year) params.set('year', year);
-  if (semester) params.set('semester', semester);
-
-  // Use JSONP to bypass CORS restrictions on GAS web apps
-  const cbName = '_gasCallback_' + Date.now();
-  const script = document.createElement('script');
-  const timeoutId = setTimeout(() => {
-    script.remove();
-    delete window[cbName];
-    showToast('同步逾時，請確認 GAS 設定', 'error');
-  }, 15000);
-
-  window[cbName] = function(data) {
-    clearTimeout(timeoutId);
-    script.remove();
-    delete window[cbName];
+  try {
+    const params = new URLSearchParams({action: 'load'});
+    if (year) params.set('year', year);
+    if (semester) params.set('semester', semester);
+    const resp = await fetch(GAS_URL + '?' + params.toString());
+    const data = await resp.json();
     if (data && data.ok && Array.isArray(data.records)) {
-      // 合併：GSheet 資料覆蓋本地同 id
       const map = {};
       records.forEach(r => { map[r.id] = r; });
       data.records.forEach(r => { map[r.id] = r; });
@@ -959,35 +947,11 @@ function loadFromGAS(year, semester) {
       showToast('已從 GSheet 同步 ' + data.records.length + ' 筆', 'success');
       refreshAll();
     } else {
-      showToast('同步失敗: ' + (data && data.error ? data.error : '格式錯誤'), 'error');
+      showToast('同步失敗: ' + (data && data.error ? data.error : '回應格式錯誤'), 'error');
     }
-  };
-
-  params.set('callback', cbName);
-  script.src = GAS_URL + '?' + params.toString();
-  script.onerror = () => {
-    clearTimeout(timeoutId);
-    script.remove();
-    delete window[cbName];
-    // Fallback: try plain fetch (works if GAS CORS is properly configured)
-    fetch(GAS_URL + '?' + new URLSearchParams({action:'load', year: year||'', semester: semester||''}), {mode: 'cors'})
-      .then(r => r.json())
-      .then(data => {
-        if (data && data.ok && Array.isArray(data.records)) {
-          const map = {};
-          records.forEach(r => { map[r.id] = r; });
-          data.records.forEach(r => { map[r.id] = r; });
-          records = Object.values(map);
-          saveData();
-          showToast('已從 GSheet 同步 ' + data.records.length + ' 筆', 'success');
-          refreshAll();
-        } else {
-          showToast('同步失敗: ' + (data && data.error ? data.error : '格式錯誤'), 'error');
-        }
-      })
-      .catch(e => showToast('同步失敗: ' + e.message, 'error'));
-  };
-  document.head.appendChild(script);
+  } catch(e) {
+    showToast('同步失敗: ' + e.message, 'error');
+  }
 }
 
 async function saveToGAS(year, semester) {
