@@ -506,10 +506,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
       <div class="page active" id="page-dashboard">
         <div class="section-title">數據總覽</div>
         <div class="filter-bar" style="margin-bottom:20px">
-          <span class="label">年份</span>
-          <select id="dash-year"></select>
-          <span class="label">半年</span>
-          <select id="dash-semester"><option value="">全部</option><option value="上半年">上半年</option><option value="下半年">下半年</option></select>
+          <span class="label">年度</span>
+          <select id="dash-period"></select>
           <span class="label">大隊</span>
           <select id="dash-brigade"></select>
         </div>
@@ -553,10 +551,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
       <div class="page" id="page-records">
         <div class="section-title">成績管理</div>
         <div class="filter-bar">
-          <span class="label">年份</span>
-          <select id="rec-year"></select>
-          <span class="label">半年</span>
-          <select id="rec-semester"><option value="上半年" selected>上半年</option><option value="下半年">下半年</option></select>
+          <span class="label">年度</span>
+          <select id="rec-period"></select>
           <span class="label">大隊</span>
           <select id="rec-brigade"></select>
           <span class="label">單位</span>
@@ -596,10 +592,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
       <div class="page" id="page-results">
         <div class="section-title">換算結果</div>
         <div class="filter-bar">
-          <span class="label">年份</span>
-          <select id="res-year"></select>
-          <span class="label">半年</span>
-          <select id="res-semester"><option value="">全部</option><option value="上半年">上半年</option><option value="下半年">下半年</option></select>
+          <span class="label">年度</span>
+          <select id="res-period"></select>
           <span class="label">大隊</span>
           <select id="res-brigade"></select>
           <span class="label">狀態</span>
@@ -637,10 +631,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
       <div class="page" id="page-analysis">
         <div class="section-title">統計分析</div>
         <div class="filter-bar" style="margin-bottom:20px">
-          <span class="label">年份</span>
-          <select id="ana-year"></select>
-          <span class="label">半年</span>
-          <select id="ana-semester"><option value="">全部</option><option value="上半年">上半年</option><option value="下半年">下半年</option></select>
+          <span class="label">年度</span>
+          <select id="ana-period"></select>
           <span class="label">大隊</span>
           <select id="ana-brigade"></select>
         </div>
@@ -980,15 +972,44 @@ async function saveToGAS(year, semester) {
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
 }
 
-// ==================== YEARS ====================
-// 動態產生年份清單（民國108起到當前年+1）
+// ==================== PERIOD (年度+半年) ====================
+// 產生「114年上半年」「114年下半年」的合併選單
 const _baseYear = 108;
 const _maxYear = _rocYear + 1;
 const YEARS = Array.from({length: _maxYear - _baseYear + 1}, (_, i) => String(_baseYear + i));
 
+// 產生所有 period 選項：「114年上半年」「114年下半年」…
+function getPeriodOptions() {
+  const opts = [];
+  for (let y = _maxYear; y >= _baseYear; y--) {
+    opts.push(`${y}年上半年`);
+    opts.push(`${y}年下半年`);
+  }
+  return opts;
+}
+
+// 預設 period = 當前年 + 上/下半年（1-6月上半年，7-12月下半年）
+const DEFAULT_PERIOD = `${DEFAULT_YEAR}年` + (_now.getMonth() < 6 ? '上半年' : '下半年');
+
+function populatePeriodSelect(el, defaultVal, withAll) {
+  const def = defaultVal || DEFAULT_PERIOD;
+  const allOpt = withAll ? '<option value="">全部</option>' : '';
+  el.innerHTML = allOpt + getPeriodOptions().map(p =>
+    `<option value="${p}" ${p===def?'selected':''}>${p}</option>`
+  ).join('');
+}
+
+// 解析 period 字串 → {year, semester}
+function parsePeriod(period) {
+  if (!period) return {year:'', semester:''};
+  const m = period.match(/^(\d+)年(上半年|下半年)$/);
+  if (!m) return {year:'', semester:''};
+  return {year: m[1], semester: m[2]};
+}
+
+// 舊 populateYearSelect 保留向後相容
 function populateYearSelect(el, defaultVal) {
-  const def = defaultVal || DEFAULT_YEAR;
-  el.innerHTML = YEARS.map(y => `<option value="${y}" ${y===def?'selected':''}>${y}</option>`).join('');
+  populatePeriodSelect(el, defaultVal ? `${defaultVal}年上半年` : null, false);
 }
 
 function populateBrigadeSelect(el, withAll) {
@@ -1088,8 +1109,7 @@ function getSemester(id) {
 let chartBrigade = null, chartDoughnut = null;
 
 function renderDashboard() {
-  const year = document.getElementById('dash-year').value;
-  const semester = getSemester('dash-semester');
+  const {year, semester} = parsePeriod(document.getElementById('dash-period').value);
   const brigade = document.getElementById('dash-brigade').value;
   const filtered = filterRecords(year, brigade, null, '', semester);
   const total = filtered.length;
@@ -1150,8 +1170,7 @@ function renderDashboard() {
 
 // ==================== RECORDS TABLE ====================
 function renderRecords() {
-  const year = document.getElementById('rec-year').value;
-  const semester = getSemester('rec-semester');
+  const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
   const brigade = document.getElementById('rec-brigade').value;
   const unit = document.getElementById('rec-unit').value;
   const search = document.getElementById('rec-search').value;
@@ -1222,8 +1241,7 @@ function deleteRecord(id) {
 
 // ==================== RESULTS TABLE ====================
 function renderResults() {
-  const year = document.getElementById('res-year').value;
-  const semester = getSemester('res-semester');
+  const {year, semester} = parsePeriod(document.getElementById('res-period').value);
   const brigade = document.getElementById('res-brigade').value;
   const status = document.getElementById('res-status').value;
   let filtered = filterRecords(year, brigade, null, '', semester);
@@ -1283,9 +1301,9 @@ function renderAnalysis() {
 }
 
 function renderAnalysisSub(tab) {
-  const year = document.getElementById('ana-year').value;
+  const {year, semester} = parsePeriod(document.getElementById('ana-period').value);
   const brigade = document.getElementById('ana-brigade').value;
-  const filtered = filterRecords(year, brigade, null, '', getSemester('ana-semester'));
+  const filtered = filterRecords(year, brigade, null, '', semester);
 
   if (tab === 'weakness') {
     const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
@@ -1457,7 +1475,7 @@ function openAddModal(id) {
   if (id) {
     const r = records.find(x => x.id === id);
     if (r) {
-      fyear.value = r.year || DEFAULT_YEAR;
+      fyear.value = `${r.year || DEFAULT_YEAR}年${r.semester || '上半年'}`;
       fb.value = r.brigade;
       populateUnitSelect(fu, r.brigade);
       if (fu.options[0]?.value === 'all') fu.remove(0);
@@ -1546,7 +1564,7 @@ function importExcel(file) {
       let ws = wb.Sheets['成績輸入'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1 });
       let imported = 0, skipped = 0;
-      const currentYear = document.getElementById('rec-year').value || DEFAULT_YEAR;
+      const currentYear = parsePeriod(document.getElementById('rec-period').value).year || DEFAULT_YEAR;
       for (let i=1; i<rows.length; i++) {
         const row = rows[i];
         if (!row || !row[3]) { skipped++; continue; }
@@ -1554,6 +1572,7 @@ function importExcel(file) {
         const rec = {
           id: uuid(),
           year: currentYear,
+          semester: currentSemester,
           brigade: String(row[1]||'').trim(),
           unit: String(row[2]||'').trim(),
           name: String(row[3]||'').trim(),
@@ -1585,8 +1604,7 @@ function importExcel(file) {
 
 // ==================== EXCEL EXPORT ====================
 function exportExcel() {
-  const year = document.getElementById('res-year').value;
-  const semester = getSemester('res-semester');
+  const {year, semester} = parsePeriod(document.getElementById('res-period').value);
   const brigade = document.getElementById('res-brigade').value;
   const status = document.getElementById('res-status').value;
   let filtered = filterRecords(year, brigade, null, '', semester);
@@ -1627,23 +1645,22 @@ function init() {
   loadData();
 
   // Populate year/brigade selects
-  ['dash-year','rec-year','res-year','ana-year'].forEach(id => {
-    populateYearSelect(document.getElementById(id), DEFAULT_YEAR);
-  });
+  populatePeriodSelect(document.getElementById('dash-period'), DEFAULT_PERIOD, true);
+  populatePeriodSelect(document.getElementById('rec-period'), DEFAULT_PERIOD, false);
+  populatePeriodSelect(document.getElementById('res-period'), DEFAULT_PERIOD, true);
+  populatePeriodSelect(document.getElementById('ana-period'), DEFAULT_PERIOD, true);
   ['dash-brigade','rec-brigade','res-brigade','ana-brigade'].forEach(id => {
     populateBrigadeSelect(document.getElementById(id), true);
   });
   populateUnitSelect(document.getElementById('rec-unit'), null);
 
   // Dashboard filter events
-  document.getElementById('dash-year').onchange = renderDashboard;
-  document.getElementById('dash-semester').onchange = renderDashboard;
+  document.getElementById('dash-period').onchange = renderDashboard;
   document.getElementById('dash-brigade').onchange = renderDashboard;
 
   // Records filter events
   const recRefresh = () => { recPage=1; renderRecords(); };
-  document.getElementById('rec-year').onchange = recRefresh;
-  document.getElementById('rec-semester').onchange = recRefresh;
+  document.getElementById('rec-period').onchange = recRefresh;
   document.getElementById('rec-brigade').onchange = () => {
     const b = document.getElementById('rec-brigade').value;
     populateUnitSelect(document.getElementById('rec-unit'), b === 'all' ? null : b);
@@ -1712,8 +1729,10 @@ function init() {
 
   // Sync GSheet
   document.getElementById('btn-sync').onclick = () => {
-    if (GAS_URL) loadFromGAS(DEFAULT_YEAR, '上半年');
-    else showToast('尚未設定 GAS_URL，請在程式碼頂端填入', 'error');
+    if (GAS_URL) {
+      const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
+      loadFromGAS(year, semester);
+    } else showToast('尚未設定 GAS_URL', 'error');
   };
 
   // Clear all
@@ -1748,7 +1767,7 @@ function init() {
   renderDashboard();
 
   // Load from GAS if configured
-  if (GAS_URL) loadFromGAS(DEFAULT_YEAR, '上半年');
+  if (GAS_URL) { const {year, semester} = parsePeriod(DEFAULT_PERIOD); loadFromGAS(year, semester); }
 }
 
 document.addEventListener('DOMContentLoaded', init);
