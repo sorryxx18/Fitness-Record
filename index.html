@@ -508,6 +508,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <div class="filter-bar" style="margin-bottom:20px">
           <span class="label">年份</span>
           <select id="dash-year"></select>
+          <span class="label">學期</span>
+          <select id="dash-semester"><option value="">全部</option><option value="上半年">上半年</option><option value="下半年">下半年</option></select>
           <span class="label">大隊</span>
           <select id="dash-brigade"></select>
         </div>
@@ -553,6 +555,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <div class="filter-bar">
           <span class="label">年份</span>
           <select id="rec-year"></select>
+          <span class="label">學期</span>
+          <select id="rec-semester"><option value="上半年" selected>上半年</option><option value="下半年">下半年</option></select>
           <span class="label">大隊</span>
           <select id="rec-brigade"></select>
           <span class="label">單位</span>
@@ -594,6 +598,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <div class="filter-bar">
           <span class="label">年份</span>
           <select id="res-year"></select>
+          <span class="label">學期</span>
+          <select id="res-semester"><option value="">全部</option><option value="上半年">上半年</option><option value="下半年">下半年</option></select>
           <span class="label">大隊</span>
           <select id="res-brigade"></select>
           <span class="label">狀態</span>
@@ -633,6 +639,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <div class="filter-bar" style="margin-bottom:20px">
           <span class="label">年份</span>
           <select id="ana-year"></select>
+          <span class="label">學期</span>
+          <select id="ana-semester"><option value="">全部</option><option value="上半年">上半年</option><option value="下半年">下半年</option></select>
           <span class="label">大隊</span>
           <select id="ana-brigade"></select>
         </div>
@@ -929,33 +937,46 @@ function uuid() {
 }
 
 // ==================== GAS ====================
-async function loadFromGAS() {
+async function loadFromGAS(year, semester) {
   if (!GAS_URL) return;
   try {
-    const r = await fetch(GAS_URL);
-    const data = await r.json();
-    if (Array.isArray(data)) {
-      // Merge by id
+    showToast('從 GSheet 載入中…', 'info');
+    const params = new URLSearchParams({action:'load'});
+    if (year) params.set('year', year);
+    if (semester) params.set('semester', semester);
+    const resp = await fetch(GAS_URL + '?' + params);
+    const data = await resp.json();
+    if (data.ok && Array.isArray(data.records)) {
+      // 合併：GSheet 資料覆蓋本地同 id
       const map = {};
       records.forEach(r => map[r.id] = r);
-      data.forEach(r => map[r.id] = r);
+      data.records.forEach(r => map[r.id] = r);
       records = Object.values(map);
       saveData();
-      showToast('已從 GSheet 同步', 'success');
+      showToast(`已從 GSheet 同步 ${data.records.length} 筆`, 'success');
       refreshAll();
+    } else {
+      showToast('同步失敗: ' + (data.error || '格式錯誤'), 'error');
     }
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
 }
 
-async function saveToGAS() {
+async function saveToGAS(year, semester) {
   if (!GAS_URL) { showToast('尚未設定 GAS URL', 'error'); return; }
   try {
-    await fetch(GAS_URL, {
+    showToast('同步至 GSheet 中…', 'info');
+    const toSave = records.filter(r =>
+      (!year || String(r.year) === String(year)) &&
+      (!semester || r.semester === semester)
+    );
+    const resp = await fetch(GAS_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({action:'save', data: records})
+      body: JSON.stringify({action:'save', year, semester, records: toSave})
     });
-    showToast('已同步至 GSheet', 'success');
+    const data = await resp.json();
+    if (data.ok) showToast(`已同步 ${data.saved} 筆至 GSheet`, 'success');
+    else showToast('同步失敗: ' + (data.error||''), 'error');
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
 }
 
@@ -1047,9 +1068,10 @@ function renderPagination(containerId, total, current, onPage) {
 }
 
 // ==================== FILTER UTILS ====================
-function filterRecords(year, brigade, unit, search) {
+function filterRecords(year, brigade, unit, search, semester) {
   return records.filter(r => {
-    if (year && year !== 'all' && r.year !== year) return false;
+    if (year && year !== 'all' && String(r.year) !== String(year)) return false;
+    if (semester && semester !== 'all' && r.semester !== semester) return false;
     if (brigade && brigade !== 'all' && r.brigade !== brigade) return false;
     if (unit && unit !== 'all' && r.unit !== unit) return false;
     if (search && search.trim() && !r.name.includes(search.trim())) return false;
@@ -1057,13 +1079,19 @@ function filterRecords(year, brigade, unit, search) {
   });
 }
 
+function getSemester(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
 // ==================== DASHBOARD ====================
 let chartBrigade = null, chartDoughnut = null;
 
 function renderDashboard() {
   const year = document.getElementById('dash-year').value;
+  const semester = getSemester('dash-semester');
   const brigade = document.getElementById('dash-brigade').value;
-  const filtered = filterRecords(year, brigade, null, '');
+  const filtered = filterRecords(year, brigade, null, '', semester);
   const total = filtered.length;
   const pass = filtered.filter(r => calcRecord(r).pass).length;
   const rate = total ? ((pass/total)*100).toFixed(1) : 0;
@@ -1123,10 +1151,11 @@ function renderDashboard() {
 // ==================== RECORDS TABLE ====================
 function renderRecords() {
   const year = document.getElementById('rec-year').value;
+  const semester = getSemester('rec-semester');
   const brigade = document.getElementById('rec-brigade').value;
   const unit = document.getElementById('rec-unit').value;
   const search = document.getElementById('rec-search').value;
-  const filtered = filterRecords(year, brigade, unit, search);
+  const filtered = filterRecords(year, brigade, unit, search, semester);
   const start = (recPage-1)*PAGE_SIZE;
   const paged = filtered.slice(start, start+PAGE_SIZE);
 
@@ -1194,9 +1223,10 @@ function deleteRecord(id) {
 // ==================== RESULTS TABLE ====================
 function renderResults() {
   const year = document.getElementById('res-year').value;
+  const semester = getSemester('res-semester');
   const brigade = document.getElementById('res-brigade').value;
   const status = document.getElementById('res-status').value;
-  let filtered = filterRecords(year, brigade, null, '');
+  let filtered = filterRecords(year, brigade, null, '', semester);
   if (status === 'pass') filtered = filtered.filter(r => calcRecord(r).pass);
   if (status === 'fail') filtered = filtered.filter(r => !calcRecord(r).pass);
 
@@ -1255,7 +1285,7 @@ function renderAnalysis() {
 function renderAnalysisSub(tab) {
   const year = document.getElementById('ana-year').value;
   const brigade = document.getElementById('ana-brigade').value;
-  const filtered = filterRecords(year, brigade, null, '');
+  const filtered = filterRecords(year, brigade, null, '', getSemester('ana-semester'));
 
   if (tab === 'weakness') {
     const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
@@ -1556,9 +1586,10 @@ function importExcel(file) {
 // ==================== EXCEL EXPORT ====================
 function exportExcel() {
   const year = document.getElementById('res-year').value;
+  const semester = getSemester('res-semester');
   const brigade = document.getElementById('res-brigade').value;
   const status = document.getElementById('res-status').value;
-  let filtered = filterRecords(year, brigade, null, '');
+  let filtered = filterRecords(year, brigade, null, '', semester);
   if (status === 'pass') filtered = filtered.filter(r => calcRecord(r).pass);
   if (status === 'fail') filtered = filtered.filter(r => !calcRecord(r).pass);
 
@@ -1606,11 +1637,13 @@ function init() {
 
   // Dashboard filter events
   document.getElementById('dash-year').onchange = renderDashboard;
+  document.getElementById('dash-semester').onchange = renderDashboard;
   document.getElementById('dash-brigade').onchange = renderDashboard;
 
   // Records filter events
   const recRefresh = () => { recPage=1; renderRecords(); };
   document.getElementById('rec-year').onchange = recRefresh;
+  document.getElementById('rec-semester').onchange = recRefresh;
   document.getElementById('rec-brigade').onchange = () => {
     const b = document.getElementById('rec-brigade').value;
     populateUnitSelect(document.getElementById('rec-unit'), b === 'all' ? null : b);
@@ -1679,7 +1712,7 @@ function init() {
 
   // Sync GSheet
   document.getElementById('btn-sync').onclick = () => {
-    if (GAS_URL) loadFromGAS();
+    if (GAS_URL) loadFromGAS(DEFAULT_YEAR, '上半年');
     else showToast('尚未設定 GAS_URL，請在程式碼頂端填入', 'error');
   };
 
@@ -1715,7 +1748,7 @@ function init() {
   renderDashboard();
 
   // Load from GAS if configured
-  if (GAS_URL) loadFromGAS();
+  if (GAS_URL) loadFromGAS(DEFAULT_YEAR, '上半年');
 }
 
 document.addEventListener('DOMContentLoaded', init);
