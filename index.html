@@ -520,7 +520,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <div class="stat-card green">
             <div class="label"><i class="ri-checkbox-circle-line"></i> 及格人數</div>
             <div class="value" id="stat-pass">0</div>
-            <div class="sub">總分 ≥ 60</div>
+            <div class="sub">114-115年≥50 / 116年起≥60</div>
           </div>
           <div class="stat-card red">
             <div class="label"><i class="ri-percent-line"></i> 及格率</div>
@@ -902,7 +902,9 @@ function calcRecord(r) {
     跑步: calcScore(r.gender, r.ageGroup, '1500跑步', r.run_1500),
   };
   const total = Object.values(scores).reduce((a,b) => a+b, 0);
-  return { ...scores, total, pass: total >= 60 };
+  // 114~115年及格線 50 分，116年起 60 分
+  const passLine = (r.year && parseInt(r.year) <= 115) ? 50 : 60;
+  return { ...scores, total, pass: total >= passLine, passLine };
 }
 
 // ==================== DATA STORE ====================
