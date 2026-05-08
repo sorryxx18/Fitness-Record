@@ -510,6 +510,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <select id="dash-period"></select>
           <span class="label">大隊</span>
           <select id="dash-brigade"></select>
+          <span class="label">中隊</span>
+          <select id="dash-squad"></select>
         </div>
         <div class="stat-cards">
           <div class="stat-card">
@@ -555,7 +557,9 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <select id="rec-period"></select>
           <span class="label">大隊</span>
           <select id="rec-brigade"></select>
-          <span class="label">單位</span>
+          <span class="label">中隊</span>
+          <select id="rec-squad"></select>
+          <span class="label">分隊</span>
           <select id="rec-unit"></select>
           <input type="search" id="rec-search" placeholder="搜尋姓名..." style="width:140px">
         </div>
@@ -597,6 +601,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <select id="res-period"></select>
           <span class="label">大隊</span>
           <select id="res-brigade"></select>
+          <span class="label">中隊</span>
+          <select id="res-squad"></select>
           <span class="label">狀態</span>
           <select id="res-status">
             <option value="all">全部</option>
@@ -636,6 +642,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <select id="ana-period"></select>
           <span class="label">大隊</span>
           <select id="ana-brigade"></select>
+          <span class="label">中隊</span>
+          <select id="ana-squad"></select>
         </div>
         <div class="sub-tabs">
           <button class="sub-tab active" data-sub="weakness">各項弱點</button>
@@ -739,7 +747,11 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <select id="f-brigade"></select>
         </div>
         <div class="form-group">
-          <label>單位</label>
+          <label>中隊</label>
+          <select id="f-squad"></select>
+        </div>
+        <div class="form-group">
+          <label>分隊</label>
           <select id="f-unit"></select>
         </div>
         <div class="form-group">
@@ -828,30 +840,30 @@ const AVAILABLE_YEARS = ['114', '115', '116', '117'].includes(DEFAULT_YEAR)
 // ==================== UNIT MAP ====================
 const UNIT_MAP = {
   '第一大隊': {
-    '中正中隊': ['華山分隊','泉州分隊','城中分隊','忠孝分隊','古亭分隊'],
-    '萬華中隊': ['雙園分隊','龍山分隊'],
-    '文山中隊': ['萬芳分隊','木柵分隊','景美分隊','寶橋分隊']
+    '中正中隊': ['中正中隊','華山分隊','泉州分隊','城中分隊','忠孝分隊','古亭分隊'],
+    '萬華中隊': ['萬華中隊','雙園分隊','龍山分隊'],
+    '文山中隊': ['文山中隊','萬芳分隊','木柵分隊','景美分隊','寶橋分隊']
   },
   '第二大隊': {
-    '大安中隊': ['金華分隊','安和分隊','復興分隊'],
-    '南港中隊': ['南港分隊','舊莊分隊','成德分隊'],
-    '信義中隊': ['信義分隊','永吉分隊','莊敬分隊']
+    '大安中隊': ['大安中隊','金華分隊','安和分隊','復興分隊'],
+    '南港中隊': ['南港中隊','南港分隊','舊莊分隊','成德分隊'],
+    '信義中隊': ['信義中隊','信義分隊','永吉分隊','莊敬分隊']
   },
   '第三大隊': {
-    '中山中隊': ['大直分隊','松江分隊','圓山分隊','建國分隊'],
-    '松山中隊': ['八德分隊','中崙分隊'],
-    '內湖中隊': ['東湖分隊','大湖分隊','內湖分隊','民權分隊']
+    '中山中隊': ['中山中隊','大直分隊','松江分隊','圓山分隊','建國分隊'],
+    '松山中隊': ['松山中隊','八德分隊','中崙分隊'],
+    '內湖中隊': ['內湖中隊','東湖分隊','大湖分隊','內湖分隊','民權分隊']
   },
   '第四大隊': {
-    '大同中隊': ['建成分隊','延平分隊','大同分隊'],
-    '士林中隊': ['山仔后分隊','天母分隊','福安分隊','社子分隊','劍潭分隊','雙溪分隊','後港分隊'],
-    '北投中隊': ['陽明山分隊','光明分隊','關渡分隊','石牌分隊','秀山分隊']
+    '大同中隊': ['大同中隊','建成分隊','延平分隊','大同分隊'],
+    '士林中隊': ['士林中隊','山仔后分隊','天母分隊','福安分隊','社子分隊','劍潭分隊','雙溪分隊','後港分隊'],
+    '北投中隊': ['北投中隊','陽明山分隊','光明分隊','關渡分隊','石牌分隊','秀山分隊']
   }
 };
 
 const BRIGADES = Object.keys(UNIT_MAP);
 
-function getAllUnits(brigade) {
+function getAllUnits(brigade, squad) {
   if (!brigade || brigade === 'all') {
     const units = [];
     BRIGADES.forEach(b => {
@@ -861,6 +873,9 @@ function getAllUnits(brigade) {
   }
   const squads = UNIT_MAP[brigade];
   if (!squads) return [];
+  if (squad && squad !== 'all') {
+    return squads[squad] || [];
+  }
   const units = [];
   Object.values(squads).forEach(arr => units.push(...arr));
   return units;
@@ -873,6 +888,33 @@ function getBrigadeForUnit(unit) {
     }
   }
   return '';
+}
+
+function getSquadForUnit(unit) {
+  for (const b of BRIGADES) {
+    for (const [sq, units] of Object.entries(UNIT_MAP[b])) {
+      if (units.includes(unit)) return sq;
+    }
+  }
+  return '';
+}
+
+function getSquadsForBrigade(brigade) {
+  if (!brigade || brigade === 'all') return [];
+  return Object.keys(UNIT_MAP[brigade] || {});
+}
+
+function populateSquadSelect(el, brigade, withAll) {
+  const squads = getSquadsForBrigade(brigade);
+  const allOpt = withAll ? '<option value="all">全部</option>' : '<option value="">請選擇中隊</option>';
+  el.innerHTML = allOpt + squads.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function cascadeSquadUnit(squadEl, unitEl, brigade, withAll) {
+  squadEl.onchange = () => {
+    const sq = squadEl.value;
+    populateUnitSelect(unitEl, brigade === 'all' ? null : brigade, sq === 'all' ? null : sq, withAll);
+  };
 }
 
 // ==================== CONVERSION TABLE ====================
@@ -1069,9 +1111,10 @@ function populateBrigadeSelect(el, withAll) {
   el.innerHTML = opts + BRIGADES.map(b => `<option value="${b}">${b}</option>`).join('');
 }
 
-function populateUnitSelect(el, brigade) {
-  const units = getAllUnits(brigade === 'all' ? null : brigade);
-  el.innerHTML = '<option value="all">全部</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
+function populateUnitSelect(el, brigade, squad, withAll) {
+  const units = getAllUnits(brigade === 'all' ? null : brigade, squad === 'all' ? null : squad);
+  const allOpt = (withAll !== false) ? '<option value="all">全部</option>' : '<option value="">請選擇分隊</option>';
+  el.innerHTML = allOpt + units.map(u => `<option value="${u}">${u}</option>`).join('');
 }
 
 // ==================== TOAST ====================
@@ -1141,11 +1184,15 @@ function renderPagination(containerId, total, current, onPage) {
 }
 
 // ==================== FILTER UTILS ====================
-function filterRecords(year, brigade, unit, search, semester) {
+function filterRecords(year, brigade, squad, unit, search, semester) {
   return records.filter(r => {
     if (year && year !== 'all' && year !== '' && String(r.year) !== String(year)) return false;
     if (semester && semester !== 'all' && semester !== '' && r.semester !== semester) return false;
     if (brigade && brigade !== 'all' && brigade !== '' && r.brigade !== brigade) return false;
+    if (squad && squad !== 'all' && squad !== '') {
+      const squadUnits = UNIT_MAP[r.brigade]?.[squad] || [];
+      if (!squadUnits.includes(r.unit)) return false;
+    }
     if (unit && unit !== 'all' && unit !== '' && r.unit !== unit) return false;
     if (search && search.trim() && !r.name.includes(search.trim())) return false;
     return true;
@@ -1163,7 +1210,8 @@ let chartBrigade = null, chartDoughnut = null;
 function renderDashboard() {
   const {year, semester} = parsePeriod(document.getElementById('dash-period').value);
   const brigade = document.getElementById('dash-brigade').value;
-  const filtered = filterRecords(year, brigade, null, '', semester);
+  const squad = document.getElementById('dash-squad')?.value || '';
+  const filtered = filterRecords(year, brigade, squad, '', '', semester);
   const total = filtered.length;
   const pass = filtered.filter(r => calcRecord(r).pass).length;
   const rate = total ? ((pass/total)*100).toFixed(1) : 0;
@@ -1224,9 +1272,10 @@ function renderDashboard() {
 function renderRecords() {
   const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
   const brigade = document.getElementById('rec-brigade').value;
+  const squad = document.getElementById('rec-squad')?.value || '';
   const unit = document.getElementById('rec-unit').value;
   const search = document.getElementById('rec-search').value;
-  const filtered = filterRecords(year, brigade, unit, search, semester);
+  const filtered = filterRecords(year, brigade, squad, unit, search, semester);
   const start = (recPage-1)*PAGE_SIZE;
   const paged = filtered.slice(start, start+PAGE_SIZE);
 
@@ -1314,8 +1363,9 @@ function deleteRecord(id) {
 function renderResults() {
   const {year, semester} = parsePeriod(document.getElementById('res-period').value);
   const brigade = document.getElementById('res-brigade').value;
+  const squad = document.getElementById('res-squad')?.value || '';
   const status = document.getElementById('res-status').value;
-  let filtered = filterRecords(year, brigade, null, '', semester);
+  let filtered = filterRecords(year, brigade, squad, '', '', semester);
   if (status === 'pass') filtered = filtered.filter(r => calcRecord(r).pass);
   if (status === 'fail') filtered = filtered.filter(r => !calcRecord(r).pass);
 
@@ -1374,7 +1424,8 @@ function renderAnalysis() {
 function renderAnalysisSub(tab) {
   const {year, semester} = parsePeriod(document.getElementById('ana-period').value);
   const brigade = document.getElementById('ana-brigade').value;
-  const filtered = filterRecords(year, brigade, null, '', semester);
+  const squad = document.getElementById('ana-squad')?.value || '';
+  const filtered = filterRecords(year, brigade, squad, '', '', semester);
 
   if (tab === 'weakness') {
     const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
@@ -1684,26 +1735,30 @@ function openAddModal(id) {
   const recPeriodEl = document.getElementById('rec-period');
   const defaultPeriodForModal = (recPeriodEl && recPeriodEl.value) ? recPeriodEl.value : DEFAULT_PERIOD;
   populatePeriodSelect(fyear, defaultPeriodForModal, false);
-  // Populate brigade
+  // Populate brigade → 中隊 → 分隊
   const fb = document.getElementById('f-brigade');
-  populateBrigadeSelect(fb, false);
-  fb.onchange = () => {
-    const fu = document.getElementById('f-unit');
-    populateUnitSelect(fu, fb.value);
-    // Remove 'all' option
-    if (fu.options[0]?.value === 'all') fu.remove(0);
-  };
-  populateUnitSelect(document.getElementById('f-unit'), BRIGADES[0]);
+  const fsq = document.getElementById('f-squad');
   const fu = document.getElementById('f-unit');
-  if (fu.options[0]?.value === 'all') fu.remove(0);
+  populateBrigadeSelect(fb, false);
+  populateSquadSelect(fsq, BRIGADES[0], false);
+  populateUnitSelect(fu, BRIGADES[0], null, false);
+  fb.onchange = () => {
+    populateSquadSelect(fsq, fb.value, false);
+    populateUnitSelect(fu, fb.value, null, false);
+  };
+  fsq.onchange = () => {
+    populateUnitSelect(fu, fb.value, fsq.value, false);
+  };
 
   if (id) {
     const r = records.find(x => x.id === id);
     if (r) {
       fyear.value = `${r.year || DEFAULT_YEAR}年${r.semester || '上半年'}`;
       fb.value = r.brigade;
-      populateUnitSelect(fu, r.brigade);
-      if (fu.options[0]?.value === 'all') fu.remove(0);
+      const rSquad = getSquadForUnit(r.unit);
+      populateSquadSelect(fsq, r.brigade, false);
+      fsq.value = rSquad;
+      populateUnitSelect(fu, r.brigade, rSquad, false);
       fu.value = r.unit;
       document.getElementById('f-name').value = r.name || '';
       document.getElementById('f-gender').value = r.gender || '男';
@@ -1904,32 +1959,52 @@ function init() {
   ['dash-brigade','rec-brigade','res-brigade','ana-brigade'].forEach(id => {
     populateBrigadeSelect(document.getElementById(id), true);
   });
-  populateUnitSelect(document.getElementById('rec-unit'), null);
+  // 初始化中隊和分隊選單（全部）
+  ['dash-squad','rec-squad','res-squad','ana-squad'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<option value="all">全部</option>';
+  });
+  populateUnitSelect(document.getElementById('rec-unit'), null, null, true);
+
+  // 通用大隊→中隊→分隊聯動設定
+  function setupBrigadeSquadUnit(brigadeId, squadId, unitId, onRefresh) {
+    const bEl = document.getElementById(brigadeId);
+    const sEl = document.getElementById(squadId);
+    const uEl = unitId ? document.getElementById(unitId) : null;
+    bEl.onchange = () => {
+      const b = bEl.value;
+      populateSquadSelect(sEl, b === 'all' ? null : b, true);
+      if (uEl) populateUnitSelect(uEl, b === 'all' ? null : b, null, true);
+      onRefresh();
+    };
+    sEl.onchange = () => {
+      const b = bEl.value;
+      const sq = sEl.value;
+      if (uEl) populateUnitSelect(uEl, b === 'all' ? null : b, sq === 'all' ? null : sq, true);
+      onRefresh();
+    };
+    if (uEl) uEl.onchange = onRefresh;
+  }
 
   // Dashboard filter events
   document.getElementById('dash-period').onchange = renderDashboard;
-  document.getElementById('dash-brigade').onchange = renderDashboard;
+  setupBrigadeSquadUnit('dash-brigade','dash-squad', null, renderDashboard);
 
   // Records filter events
   const recRefresh = () => { recPage=1; renderRecords(); };
   document.getElementById('rec-period').onchange = recRefresh;
-  document.getElementById('rec-brigade').onchange = () => {
-    const b = document.getElementById('rec-brigade').value;
-    populateUnitSelect(document.getElementById('rec-unit'), b === 'all' ? null : b);
-    recRefresh();
-  };
-  document.getElementById('rec-unit').onchange = recRefresh;
+  setupBrigadeSquadUnit('rec-brigade','rec-squad','rec-unit', recRefresh);
   document.getElementById('rec-search').oninput = recRefresh;
 
   // Results filter events
   const resRefresh = () => { resPage=1; renderResults(); };
   document.getElementById('res-period').onchange = resRefresh;
-  document.getElementById('res-brigade').onchange = resRefresh;
+  setupBrigadeSquadUnit('res-brigade','res-squad', null, resRefresh);
   document.getElementById('res-status').onchange = resRefresh;
 
   // Analysis filter events
   document.getElementById('ana-period').onchange = renderAnalysis;
-  document.getElementById('ana-brigade').onchange = renderAnalysis;
+  setupBrigadeSquadUnit('ana-brigade','ana-squad', null, renderAnalysis);
 
   // 個人成長 Enter 查詢
   document.getElementById('personal-name').addEventListener('keydown', e => {
