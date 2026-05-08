@@ -1029,12 +1029,13 @@ const _baseSemester = '上半年'; // 114年只有上半年起算
 const _maxYear = _rocYear + 1;
 const YEARS = Array.from({length: _maxYear - _baseYear + 1}, (_, i) => String(_baseYear + i));
 
-// 產生所有 period 選項（最新在最前），最早為 114年上半年
+// 產生所有 period 選項（最新在最前）
+// 最早選項為 114年上半年，114年下半年及之後全部保留
 function getPeriodOptions() {
   const opts = [];
   for (let y = _maxYear; y >= _baseYear; y--) {
+    opts.push(`${y}年下半年`); // 下半年較新，排前面
     opts.push(`${y}年上半年`);
-    if (y > _baseYear) opts.push(`${y}年下半年`);
   }
   return opts;
 }
