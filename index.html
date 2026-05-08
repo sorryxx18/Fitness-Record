@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -569,7 +570,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <button class="btn btn-white" id="btn-import"><i class="ri-upload-2-line"></i> 匯入Excel</button>
           <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
           <button class="btn btn-green" id="btn-export-rec"><i class="ri-file-excel-line"></i> 匯出原始資料</button>
-          <button class="btn btn-white" id="btn-sync"><i class="ri-cloud-line"></i> 同步GSheet</button>
+          <button class="btn btn-white" id="btn-sync"><i class="ri-download-cloud-2-line"></i> 從 GSheet 載入</button>
+          <button class="btn btn-green" id="btn-save-gsheet"><i class="ri-upload-cloud-2-line"></i> 儲存到 GSheet</button>
           <button class="btn btn-danger" id="btn-clear"><i class="ri-delete-bin-line"></i> 清除全部</button>
         </div>
         <div class="table-wrap">
@@ -1065,8 +1067,10 @@ function downloadTemplate() {
 
 async function saveToGAS(year, semester) {
   if (!GAS_URL) { showToast('尚未設定 GAS URL', 'error'); return; }
+  const adminKey = window.prompt('請輸入管理者金鑰（ADMIN_KEY）');
+  if (!adminKey) { showToast('已取消儲存到 GSheet', 'info'); return; }
   try {
-    showToast('同步至 GSheet 中…', 'info');
+    showToast('儲存到 GSheet 中…', 'info');
     const toSave = records.filter(r =>
       (!year || String(r.year) === String(year)) &&
       (!semester || r.semester === semester)
@@ -1076,13 +1080,14 @@ async function saveToGAS(year, semester) {
     body.set('action', 'save');
     body.set('year', year || '');
     body.set('semester', semester || '');
+    body.set('adminKey', adminKey);
     body.set('records', JSON.stringify(toSave));
     const resp = await fetch(GAS_URL, {
       method: 'POST',
       body: body
     });
     const data = await resp.json();
-    if (data.ok) showToast('已同步 ' + data.saved + ' 筆至 GSheet', 'success');
+    if (data.ok) showToast('已儲存 ' + data.saved + ' 筆至 GSheet', 'success');
     else showToast('同步失敗: ' + (data.error||''), 'error');
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
 }
@@ -2151,6 +2156,13 @@ function init() {
     if (GAS_URL) {
       const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
       loadFromGAS(year, semester);
+    } else showToast('尚未設定 GAS_URL', 'error');
+  };
+
+  document.getElementById('btn-save-gsheet').onclick = () => {
+    if (GAS_URL) {
+      const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
+      saveToGAS(year, semester);
     } else showToast('尚未設定 GAS_URL', 'error');
   };
 
