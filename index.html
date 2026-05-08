@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -831,10 +830,9 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
 // ==================== CONFIG ====================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyFk8sH4a8Zuwv6pgJHzAVHo5w9TF6BN9tXXZvayFQzkD45MD7BFS59HQ8Fw19wfog/exec';
 
-// 自動計算民國年（當年1-6月視為上半年，預設當前學年）
+// 自動計算民國年
 const _now = new Date();
 const _rocYear = _now.getFullYear() - 1911;
-// 上半年(1-6月)用當年，下半年(7-12月)用當年（整年制）
 const DEFAULT_YEAR = String(_rocYear);
 const AVAILABLE_YEARS = ['114', '115', '116', '117'].includes(DEFAULT_YEAR)
   ? [...new Set(['114', DEFAULT_YEAR])].sort()
@@ -843,28 +841,28 @@ const AVAILABLE_YEARS = ['114', '115', '116', '117'].includes(DEFAULT_YEAR)
 // ==================== UNIT MAP ====================
 const UNIT_MAP = {
   '第一大隊': {
-    '大隊本部': [],
-    '中正中隊': ['中正中隊','華山分隊','泉州分隊','城中分隊','忠孝分隊','古亭分隊'],
-    '萬華中隊': ['萬華中隊','雙園分隊','龍山分隊'],
-    '文山中隊': ['文山中隊','萬芳分隊','木柵分隊','景美分隊','寶橋分隊']
+    '大隊本部':[],
+    '中正中隊':['中正中隊','華山分隊','泉州分隊','城中分隊','忠孝分隊','古亭分隊'],
+    '萬華中隊':['萬華中隊','雙園分隊','龍山分隊'],
+    '文山中隊':['文山中隊','萬芳分隊','木柵分隊','景美分隊','寶橋分隊']
   },
   '第二大隊': {
     '大隊本部': [],
-    '大安中隊': ['大安中隊','金華分隊','安和分隊','復興分隊'],
+    '大安中隊':['大安中隊','金華分隊','安和分隊','復興分隊'],
     '南港中隊': ['南港中隊','南港分隊','舊莊分隊','成德分隊'],
-    '信義中隊': ['信義中隊','信義分隊','永吉分隊','莊敬分隊']
+    '信義中隊':['信義中隊','信義分隊','永吉分隊','莊敬分隊']
   },
   '第三大隊': {
-    '大隊本部': [],
-    '中山中隊': ['中山中隊','大直分隊','松江分隊','圓山分隊','建國分隊'],
-    '松山中隊': ['松山中隊','八德分隊','中崙分隊'],
-    '內湖中隊': ['內湖中隊','東湖分隊','大湖分隊','內湖分隊','民權分隊']
+    '大隊本部':[],
+    '中山中隊':['中山中隊','大直分隊','松江分隊','圓山分隊','建國分隊'],
+    '松山中隊':['松山中隊','八德分隊','中崙分隊'],
+    '內湖中隊':['內湖中隊','東湖分隊','大湖分隊','內湖分隊','民權分隊']
   },
   '第四大隊': {
     '大隊本部': [],
-    '大同中隊': ['大同中隊','建成分隊','延平分隊','大同分隊'],
-    '士林中隊': ['士林中隊','山仔后分隊','天母分隊','福安分隊','社子分隊','劍潭分隊','雙溪分隊','後港分隊'],
-    '北投中隊': ['北投中隊','陽明山分隊','光明分隊','關渡分隊','石牌分隊','秀山分隊']
+    '大同中隊':['大同中隊','建成分隊','延平分隊','大同分隊'],
+    '士林中隊':['士林中隊','山仔后分隊','天母分隊','福安分隊','社子分隊','劍潭分隊','雙溪分隊','後港分隊'],
+    '北投中隊':['北投中隊','陽明山分隊','光明分隊','關渡分隊','石牌分隊','秀山分隊']
   }
 };
 
@@ -872,7 +870,7 @@ const BRIGADES = Object.keys(UNIT_MAP);
 
 function getAllUnits(brigade, squad) {
   if (!brigade || brigade === 'all') {
-    const units = [];
+    const units =[];
     BRIGADES.forEach(b => {
       Object.values(UNIT_MAP[b]).forEach(arr => units.push(...arr));
     });
@@ -883,7 +881,7 @@ function getAllUnits(brigade, squad) {
   if (squad && squad !== 'all') {
     return squads[squad] || [];
   }
-  const units = [];
+  const units =[];
   Object.values(squads).forEach(arr => units.push(...arr));
   return units;
 }
@@ -912,28 +910,39 @@ function getSquadsForBrigade(brigade) {
   return Object.keys(UNIT_MAP[brigade] || {});
 }
 
-// 根據大隊+單位自動判斷所屬中隊（用於匯入）
+// 根據大隊+單位自動判斷所屬中隊（用於匯入），增加模糊比對功能
 function detectUnitInfo(brigade, unitInput) {
   const u = String(unitInput || '').trim();
-  // 1. 單位 == 大隊名稱 → 大隊本部
-  if (BRIGADES.includes(u) || u === brigade) {
-    return { brigade, squad: '大隊本部', unit: '大隊本部' };
+  if (!u) return { brigade, squad: '', unit: '' };
+
+  // 1. 單位 == 大隊名稱 或包含本部字眼
+  if (BRIGADES.includes(u) || u === brigade || (u.includes(brigade) && u.includes('本部'))) {
+    return { brigade: brigade || u, squad: '大隊本部', unit: '大隊本部' };
   }
-  // 2. 單位是中隊名稱 → 中隊本部人員
+  
+  // 建立可能的名稱變化 (如輸入"古亭" => 比對"古亭", "古亭分隊", "古亭中隊")
+  const possibleNames =[u, u + '分隊', u + '中隊'];
+
+  // 2. 檢查是否為中隊
   for (const b of BRIGADES) {
-    if (UNIT_MAP[b][u]) {
-      return { brigade: brigade || b, squad: u, unit: u };
+    for (const sq of Object.keys(UNIT_MAP[b])) {
+       if (possibleNames.includes(sq)) {
+         return { brigade: brigade || b, squad: sq, unit: sq };
+       }
     }
   }
-  // 3. 單位是分隊名稱 → 自動帶入所屬大隊+中隊
+  
+  // 3. 檢查是否為分隊
   for (const b of BRIGADES) {
     for (const [sq, units] of Object.entries(UNIT_MAP[b])) {
-      if (units.includes(u)) {
-        return { brigade: brigade || b, squad: sq, unit: u };
+      for (const realUnit of units) {
+        if (possibleNames.includes(realUnit)) {
+          return { brigade: brigade || b, squad: sq, unit: realUnit };
+        }
       }
     }
   }
-  return { brigade, squad: '', unit: u };
+  return { brigade: brigade || '', squad: '', unit: u };
 }
 
 function populateSquadSelect(el, brigade, withAll) {
@@ -977,7 +986,6 @@ function calcScore(gender, ageGroup, item, value) {
   }
 }
 
-
 function getItemMaxScoreForRecord(r, item) {
   const gender = r.gender || '男';
   const ageGroup = gender === '女' ? '不分年齡' : (r.ageGroup || getAgeGroup(r.age));
@@ -993,7 +1001,7 @@ function getItemMaxScoreForRecord(r, item) {
 
 function getItemMaxScore(gender, ageGroup, item) {
   const ag = gender === '女' ? '不分年齡' : ageGroup;
-  const rows = CONV_TABLE[gender]?.[ag]?.[item] || [];
+  const rows = CONV_TABLE[gender]?.[ag]?.[item] ||[];
   return rows.reduce((max, row) => Math.max(max, Number(row.score) || 0), 0);
 }
 
@@ -1011,20 +1019,27 @@ function calcRecord(r) {
     跑步: calcScore(r.gender, r.ageGroup, '1500跑步', r.run_1500),
   };
   const total = Object.values(scores).reduce((a,b) => a+b, 0);
-  // 114~115年及格線 50 分，116年起 60 分
   const passLine = (r.year && parseInt(r.year) <= 115) ? 50 : 60;
   return { ...scores, total, pass: total >= passLine, passLine };
 }
 
 // ==================== DATA STORE ====================
-let records = [];
+let records =[];
 const LS_KEY = 'fitness_records';
 
 function loadData() {
   try {
     const s = localStorage.getItem(LS_KEY);
-    records = s ? JSON.parse(s) : [];
-  } catch(e) { records = []; }
+    let rawRecords = s ? JSON.parse(s) :[];
+    
+    // 自動去重邏輯：以 "年度+學期+單位+姓名" 為唯一識別鍵
+    const keyMap = {};
+    rawRecords.forEach(r => {
+      const k = `${r.year}|${r.semester}|${r.unit}|${r.name}`;
+      keyMap[k] = r;
+    });
+    records = Object.values(keyMap);
+  } catch(e) { records =[]; }
 }
 
 function saveData() {
@@ -1051,13 +1066,24 @@ async function loadFromGAS(year, semester) {
     const resp = await fetch(GAS_URL + '?' + params.toString());
     const data = await resp.json();
     if (data && data.ok && Array.isArray(data.records)) {
-      // 以 id 為 key 合併，GSheet 資料優先
-      const map = {};
-      records.forEach(r => { map[r.id] = r; });
-      data.records.forEach(r => { map[r.id] = r; });
-      records = Object.values(map);
+      
+      const localMapByKey = {};
+      
+      // 先將目前本地的資料加入 Map，使用組合鍵辨識
+      records.forEach(r => {
+        const k = `${r.year}|${r.semester}|${r.unit}|${r.name}`;
+        localMapByKey[k] = r;
+      });
+
+      // 將 Google Sheet 下載的資料覆蓋進來
+      data.records.forEach(r => {
+        const k = `${r.year}|${r.semester}|${r.unit}|${r.name}`;
+        localMapByKey[k] = r; // 如果鍵值相同，雲端資料會直接覆蓋本地資料
+      });
+
+      records = Object.values(localMapByKey);
       saveData();
-      showToast('已從 GSheet 同步 ' + data.records.length + ' 筆', 'success');
+      showToast('已從 GSheet 同步並過濾重複，目前共 ' + records.length + ' 筆', 'success');
       refreshAll();
     } else {
       showToast('同步失敗: ' + (data && data.error ? data.error : '回應格式錯誤'), 'error');
@@ -1069,16 +1095,16 @@ async function loadFromGAS(year, semester) {
 
 // 下載空白範本
 function downloadTemplate() {
-  const note = ['【說明】匯入前請先在頁面上選好「年度/學期」，匯入的資料會自動套用所選年度。懸吊屈體(次)與(秒)二擇一填入即可。'];
-  const headers = ['號碼','大隊','單位','姓名','性別','年齡','年齡層',
+  const note =['【說明】匯入前請先在頁面上選好「年度/學期」，匯入的資料會自動套用所選年度。懸吊屈體(次)與(秒)二擇一填入即可。'];
+  const headers =['號碼','大隊','單位','姓名','性別','年齡','年齡層',
     '立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)',
     '懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
-  const example = [1,'第一大隊','古亭分隊','王小明','男',35,'30-39',
+  const example =[1,'第一大隊','古亭分隊','王小明','男',35,'30-39',
     210,12,10,120,8,'',130,420];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([note, headers, example]);
   // 合併說明列
-  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:14} }];
+  ws['!merges'] =[{ s:{r:0,c:0}, e:{r:0,c:14} }];
   ws['!cols'] = headers.map((_, i) => ({ wch: i < 3 ? 12 : i < 7 ? 10 : 14 }));
   XLSX.utils.book_append_sheet(wb, ws, '成績輸入');
   XLSX.writeFile(wb, '常訓體能成績_匯入範本.xlsx');
@@ -1095,42 +1121,32 @@ async function saveToGAS(year, semester) {
       (!year || String(r.year) === String(year)) &&
       (!semester || r.semester === semester)
     );
-    // Use URLSearchParams (form-encoded) instead of JSON to avoid CORS preflight issues
     const body = new URLSearchParams();
     body.set('action', 'save');
     body.set('year', year || '');
     body.set('semester', semester || '');
     body.set('adminKey', adminKey);
     body.set('records', JSON.stringify(toSave));
-    const resp = await fetch(GAS_URL, {
-      method: 'POST',
-      body: body
-    });
+    const resp = await fetch(GAS_URL, { method: 'POST', body: body });
     const data = await resp.json();
     if (data.ok) showToast('已儲存 ' + data.saved + ' 筆至 GSheet', 'success');
     else showToast('同步失敗: ' + (data.error||''), 'error');
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
 }
 
-// ==================== PERIOD (年度+半年) ====================
-// 期間選單：最早為 114年上半年，持續到未來年度
+// ==================== PERIOD ====================
 const _baseYear = 114;
-const _baseSemester = '上半年'; // 114年只有上半年起算
 const _maxYear = _rocYear + 1;
-const YEARS = Array.from({length: _maxYear - _baseYear + 1}, (_, i) => String(_baseYear + i));
 
-// 產生所有 period 選項（最新在最前）
-// 最早選項為 114年上半年，114年下半年及之後全部保留
 function getPeriodOptions() {
-  const opts = [];
+  const opts =[];
   for (let y = _maxYear; y >= _baseYear; y--) {
-    opts.push(`${y}年下半年`); // 下半年較新，排前面
+    opts.push(`${y}年下半年`);
     opts.push(`${y}年上半年`);
   }
   return opts;
 }
 
-// 預設 period = 當前年 + 上/下半年（1-6月上半年，7-12月下半年）
 const DEFAULT_PERIOD = `${DEFAULT_YEAR}年` + (_now.getMonth() < 6 ? '上半年' : '下半年');
 
 function populatePeriodSelect(el, defaultVal, withAll) {
@@ -1141,17 +1157,11 @@ function populatePeriodSelect(el, defaultVal, withAll) {
   ).join('');
 }
 
-// 解析 period 字串 → {year, semester}
 function parsePeriod(period) {
   if (!period) return {year:'', semester:''};
   const m = period.match(/^(\d+)年(上半年|下半年)$/);
   if (!m) return {year:'', semester:''};
   return {year: m[1], semester: m[2]};
-}
-
-// 舊 populateYearSelect 保留向後相容
-function populateYearSelect(el, defaultVal) {
-  populatePeriodSelect(el, defaultVal ? `${defaultVal}年上半年` : null, false);
 }
 
 function populateBrigadeSelect(el, withAll) {
@@ -1161,15 +1171,19 @@ function populateBrigadeSelect(el, withAll) {
 
 function populateUnitSelect(el, brigade, squad, withAll) {
   if (!el) return;
-  // 大隊本部沒有分隊
-  if (squad === '大隊本部') {
-    el.innerHTML = '<option value="大隊本部">大隊本部</option>';
-    el.closest?.('.form-group')?.style && (el.style.display = 'none');
-    el.parentElement && (el.parentElement.style.display = 'none');
-    return;
-  }
+  // 確保顯示狀態 (從大隊本部切換回來時能顯示)
   el.style.display = '';
   if (el.parentElement) el.parentElement.style.display = '';
+  if (el.closest('.form-group')) el.closest('.form-group').style.display = '';
+
+  if (squad === '大隊本部') {
+    el.innerHTML = '<option value="大隊本部">大隊本部</option>';
+    // 只在新增人員 Modal 裡隱藏分隊輸入框
+    if (el.id === 'f-unit' && el.closest('.form-group')) {
+        el.closest('.form-group').style.display = 'none';
+    }
+    return;
+  }
   const units = getAllUnits(brigade === 'all' ? null : brigade, squad === 'all' ? null : squad);
   const allOpt = (withAll !== false) ? '<option value="all">全部</option>' : '<option value="">請選擇分隊</option>';
   el.innerHTML = allOpt + units.map(u => `<option value="${u}">${u}</option>`).join('');
@@ -1200,18 +1214,15 @@ function navigateTo(page) {
   });
   document.getElementById('topbarTitle').textContent = PAGE_TITLES[page] || '';
   currentPage = page;
-  // Refresh page-specific content
   if (page === 'dashboard') renderDashboard();
   if (page === 'records') renderRecords();
   if (page === 'results') renderResults();
   if (page === 'analysis') renderAnalysis();
   if (page === 'formula') renderFormula();
-  // Close mobile sidebar
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('overlay').classList.remove('show');
 }
 
-// Hash-based formula page
 function checkHash() {
   if (window.location.hash === '#formula') {
     document.getElementById('formulaNavBtn').style.display = '';
@@ -1244,8 +1255,8 @@ function renderPagination(containerId, total, current, onPage) {
 // ==================== FILTER UTILS ====================
 function filterRecords(year, brigade, squad, unit, search, semester) {
   return records.filter(r => {
-    if (year && year !== 'all' && year !== '' && String(r.year) !== String(year)) return false;
-    if (semester && semester !== 'all' && semester !== '' && r.semester !== semester) return false;
+    if (year && year !== 'all' && String(r.year) !== String(year)) return false;
+    if (semester && semester !== 'all' && r.semester !== semester) return false;
     if (brigade && brigade !== 'all' && brigade !== '' && r.brigade !== brigade) return false;
     if (squad && squad !== 'all' && squad !== '') {
       const rSquad = r.squad || getSquadForUnit(r.unit);
@@ -1281,7 +1292,6 @@ function renderDashboard() {
   document.getElementById('stat-rate').textContent = rate + '%';
   document.getElementById('stat-avg').textContent = avg;
 
-  // Brigade chart
   const brigadeData = BRIGADES.map(b => {
     const sub = filtered.filter(r => r.brigade === b);
     const p = sub.filter(r => calcRecord(r).pass).length;
@@ -1294,7 +1304,7 @@ function renderDashboard() {
     type: 'bar',
     data: {
       labels: BRIGADES,
-      datasets: [
+      datasets:[
         { label: '及格', data: brigadeData.map(d=>d.pass), backgroundColor: '#dc2626' },
         { label: '不及格', data: brigadeData.map(d=>d.fail), backgroundColor: '#e2e8f0' }
       ]
@@ -1307,14 +1317,13 @@ function renderDashboard() {
     }
   });
 
-  // Doughnut
   if (chartDoughnut) chartDoughnut.destroy();
   const ctxD = document.getElementById('chart-doughnut').getContext('2d');
   chartDoughnut = new Chart(ctxD, {
     type: 'doughnut',
     data: {
-      labels: ['及格', '不及格'],
-      datasets: [{ data: [pass, total-pass], backgroundColor: ['#059669','#dc2626'], borderWidth: 0 }]
+      labels:['及格', '不及格'],
+      datasets: [{ data: [pass, total-pass], backgroundColor:['#059669','#dc2626'], borderWidth: 0 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -1349,7 +1358,7 @@ function renderRecords() {
 
   tbody.innerHTML = paged.map(r => {
     const id = r.id;
-    const editable = !r.year || parseInt(r.year) >= _rocYear; // 當年及未來可編輯
+    const editable = !r.year || parseInt(r.year) >= _rocYear;
     if (!editable) {
       return `<tr style="opacity:0.75">
         <td>${r.brigade||''}</td>
@@ -1486,7 +1495,7 @@ function renderAnalysisSub(tab) {
   const filtered = filterRecords(year, brigade, squad, '', '', semester);
 
   if (tab === 'weakness') {
-    const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
+    const items =['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
     const avgs = items.map(item => {
       if (!filtered.length) return 0;
       const sum = filtered.reduce((acc,r) => {
@@ -1503,7 +1512,7 @@ function renderAnalysisSub(tab) {
       type: 'radar',
       data: {
         labels: items,
-        datasets: [{
+        datasets:[{
           label: '平均達成率 (%)',
           data: avgs,
           backgroundColor: 'rgba(220,38,38,0.15)',
@@ -1524,7 +1533,7 @@ function renderAnalysisSub(tab) {
   }
 
   if (tab === 'distribution') {
-    const buckets = ['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-100'];
+    const buckets =['0-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-89','90-100'];
     const counts = Array(10).fill(0);
     filtered.forEach(r => {
       const t = calcRecord(r).total;
@@ -1539,7 +1548,7 @@ function renderAnalysisSub(tab) {
       type: 'bar',
       data: {
         labels: buckets,
-        datasets: [{ label: '人數', data: counts, backgroundColor: colors, borderRadius: 4 }]
+        datasets:[{ label: '人數', data: counts, backgroundColor: colors, borderRadius: 4 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
@@ -1566,7 +1575,7 @@ function renderAnalysisSub(tab) {
         datasets: [{
           label: '及格率 (%)',
           data: data,
-          backgroundColor: ['#dc2626','#b91c1c','#ef4444','#f87171'],
+          backgroundColor:['#dc2626','#b91c1c','#ef4444','#f87171'],
           borderRadius: 6
         }]
       },
@@ -1582,7 +1591,6 @@ function renderAnalysisSub(tab) {
   }
 
   if (tab === 'trend') {
-    // 取得所有期間（依年份+學期排序，上半年在前）
     const brigadeFilter = brigade && brigade !== 'all' ? brigade : null;
     const src = brigadeFilter ? records.filter(r => r.brigade === brigadeFilter) : records;
 
@@ -1593,8 +1601,8 @@ function renderAnalysisSub(tab) {
       periodMap[p].push(r);
     });
     const sortedPeriods = Object.keys(periodMap).sort((a, b) => {
-      const [ya, sa] = [parseInt(a), a.includes('上半年') ? 0 : 1];
-      const [yb, sb] = [parseInt(b), b.includes('上半年') ? 0 : 1];
+      const [ya, sa] =[parseInt(a), a.includes('上半年') ? 0 : 1];
+      const [yb, sb] =[parseInt(b), b.includes('上半年') ? 0 : 1];
       return ya !== yb ? ya - yb : sa - sb;
     });
 
@@ -1614,7 +1622,7 @@ function renderAnalysisSub(tab) {
       type: 'line',
       data: {
         labels: sortedPeriods,
-        datasets: [{ label: '及格率(%)', data: passRates, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
+        datasets:[{ label: '及格率(%)', data: passRates, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
@@ -1631,7 +1639,7 @@ function renderAnalysisSub(tab) {
       type: 'line',
       data: {
         labels: sortedPeriods,
-        datasets: [{ label: '平均總分', data: avgScores, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
+        datasets:[{ label: '平均總分', data: avgScores, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
@@ -1653,7 +1661,6 @@ function renderPersonalChart() {
     return;
   }
 
-  // 如有同名不同單位，群組列出
   const unitGroups = {};
   matched.forEach(r => {
     const key = `${r.brigade} ${r.unit}`;
@@ -1668,25 +1675,6 @@ function renderPersonalChart() {
       return (a.semester||'').includes('上') ? -1 : 1;
     });
     const labels = sorted.map(r => `${r.year}年${r.semester||''}`);
-    const totalScores = sorted.map(r => calcRecord(r).total);
-    const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
-    const itemColors = ['#dc2626','#b91c1c','#f59e0b','#059669','#2563eb','#7c3aed','#db2777'];
-    const datasets = items.map((item, i) => ({
-      label: item,
-      data: sorted.map(r => calcRecord(r)[item] || 0),
-      borderColor: itemColors[i],
-      backgroundColor: 'transparent',
-      tension: 0.3, pointRadius: 4, borderWidth: 1.5
-    }));
-    datasets.unshift({
-      label: '總分',
-      data: totalScores,
-      borderColor: '#111827',
-      backgroundColor: 'rgba(17,24,39,0.08)',
-      tension: 0.3, pointRadius: 5, borderWidth: 2.5, fill: true,
-      yAxisID: 'yTotal'
-    });
-
     const canvasId = `chart-personal-${gi}`;
     return `<div class="chart-card" style="margin-bottom:16px">
       <h3>${name}（${unit}）歷年成績趨勢</h3>
@@ -1694,7 +1682,6 @@ function renderPersonalChart() {
     </div>`;
   }).join('');
 
-  // 繪圖（DOM 需先渲染）
   requestAnimationFrame(() => {
     if (chartPersonal) { (Array.isArray(chartPersonal)?chartPersonal:[chartPersonal]).forEach(c=>c.destroy()); }
     chartPersonal = [];
@@ -1704,8 +1691,8 @@ function renderPersonalChart() {
         return ya!==yb?ya-yb:(a.semester||'').includes('上')?-1:1;
       });
       const labels = sorted.map(r=>`${r.year}年${r.semester||''}`);
-      const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
-      const itemColors = ['#dc2626','#b91c1c','#f59e0b','#059669','#2563eb','#7c3aed','#db2777'];
+      const items =['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
+      const itemColors =['#dc2626','#b91c1c','#f59e0b','#059669','#2563eb','#7c3aed','#db2777'];
       const datasets = items.map((item,i)=>({
         label: item, data: sorted.map(r=>calcRecord(r)[item]||0),
         borderColor: itemColors[i], backgroundColor:'transparent',
@@ -1735,7 +1722,7 @@ function renderPersonalChart() {
 }
 
 // ==================== FORMULA PAGE ====================
-const FORMULA_ITEMS = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊屈體','懸吊秒數','負重行走','1500跑步'];
+const FORMULA_ITEMS =['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊屈體','懸吊秒數','負重行走','1500跑步'];
 let activeFormulaItem = '立定跳遠';
 
 function renderFormula() {
@@ -1743,10 +1730,8 @@ function renderFormula() {
   const age = document.getElementById('formula-age').value;
   const ag = gender === '女' ? '不分年齡' : age;
 
-  // Build tabs
   const tabsEl = document.getElementById('formula-item-tabs');
   tabsEl.innerHTML = FORMULA_ITEMS.map(item => {
-    const avail = CONV_TABLE[gender]?.[ag]?.[item];
     return `<button class="ftab ${item===activeFormulaItem?'active':''}" onclick="activeFormulaItem='${item}';renderFormula()">${item}</button>`;
   }).join('');
 
@@ -1762,7 +1747,6 @@ function renderFormula() {
 
   theadEl.innerHTML = `<th>門檻值</th><th>條件</th><th>得分</th>`;
 
-  // Deduplicate entries
   const seen = new Set();
   const rows = data.filter(e => {
     const k = `${e.val}-${e.score}`;
@@ -1792,24 +1776,36 @@ function openAddModal(id) {
   editingId = id || null;
   const modal = document.getElementById('modal-person');
   document.getElementById('modal-title').textContent = id ? '編輯人員' : '新增人員';
-  // Populate year — default to current records page period
+  
   const fyear = document.getElementById('f-year');
   const recPeriodEl = document.getElementById('rec-period');
   const defaultPeriodForModal = (recPeriodEl && recPeriodEl.value) ? recPeriodEl.value : DEFAULT_PERIOD;
   populatePeriodSelect(fyear, defaultPeriodForModal, false);
-  // Populate brigade → 中隊 → 分隊
+  
   const fb = document.getElementById('f-brigade');
   const fsq = document.getElementById('f-squad');
   const fu = document.getElementById('f-unit');
   populateBrigadeSelect(fb, false);
   populateSquadSelect(fsq, BRIGADES[0], false);
   populateUnitSelect(fu, BRIGADES[0], null, false);
+  
   fb.onchange = () => {
     populateSquadSelect(fsq, fb.value, false);
     populateUnitSelect(fu, fb.value, null, false);
-    fu.closest('.form-group').style.display = '';
+    if (fu.closest('.form-group')) fu.closest('.form-group').style.display = '';
   };
-  setupModalSquadUnit(fsq, fu, () => fb.value);
+  
+  fsq.onchange = () => {
+    const sq = fsq.value;
+    const b = fb.value;
+    if (sq === '大隊本部') {
+      fu.innerHTML = '<option value="大隊本部">大隊本部</option>';
+      if (fu.closest('.form-group')) fu.closest('.form-group').style.display = 'none';
+    } else {
+      if (fu.closest('.form-group')) fu.closest('.form-group').style.display = '';
+      populateUnitSelect(fu, b, sq, false);
+    }
+  };
 
   if (id) {
     const r = records.find(x => x.id === id);
@@ -1836,8 +1832,7 @@ function openAddModal(id) {
   } else {
     document.getElementById('f-name').value = '';
     document.getElementById('f-gender').value = '男';
-    document.getElementById('f-age').value = '';
-    ['standing_jump','ball_throw','shuttle_run','deadlift','chin_up_count','chin_up_sec','loaded_walk','run_1500'].forEach(f => {
+    document.getElementById('f-age').value = '';['standing_jump','ball_throw','shuttle_run','deadlift','chin_up_count','chin_up_sec','loaded_walk','run_1500'].forEach(f => {
       document.getElementById('f-'+f).value = '';
     });
   }
@@ -1884,7 +1879,7 @@ function savePersonModal() {
     records.push({ id: uuid(), ...data });
     showToast('已新增', 'success');
   }
-  saveData();
+  saveData(); // This will auto-deduplicate
   closeAddModal();
   renderRecords();
 }
@@ -1912,7 +1907,6 @@ function importExcel(file) {
       const importYear = currentYear || DEFAULT_YEAR;
       const importSemester = currentSemester || parsePeriod(DEFAULT_PERIOD).semester;
 
-      // 建立去重索引：年度+學期+單位+姓名 → 記錄索引
       const keyMap = {};
       records.forEach((r, i) => {
         const k = `${r.year}|${r.semester}|${r.unit}|${r.name}`;
@@ -1925,7 +1919,7 @@ function importExcel(file) {
         const age = parseInt(row[5]);
         const name = String(row[3]||'').trim();
         const unit = String(row[2]||'').trim();
-        // 跳過說明列、標題列
+        
         if (!name || name === '姓名' || name.startsWith('【')) { skipped++; continue; }
 
         const rawBrigade = String(row[1]||'').trim();
@@ -1950,9 +1944,8 @@ function importExcel(file) {
           run_1500: row[14]!==undefined&&row[14]!==''?parseFloat(row[14]):null,
         };
 
-        const k = `${importYear}|${importSemester}|${unit}|${name}`;
+        const k = `${importYear}|${importSemester}|${rec.unit}|${name}`;
         if (keyMap[k] !== undefined) {
-          // 相同單位+姓名+年度+學期 → 覆蓋，保留原 id
           rec.id = records[keyMap[k]].id;
           records[keyMap[k]] = rec;
           updated++;
@@ -1974,7 +1967,6 @@ function importExcel(file) {
 }
 
 // ==================== EXCEL EXPORT ====================
-// 成績管理頁匯出原始資料
 function exportRawRecords() {
   const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
   const brigade = document.getElementById('rec-brigade').value;
@@ -1983,10 +1975,10 @@ function exportRawRecords() {
   const search = document.getElementById('rec-search').value;
   const filtered = filterRecords(year, brigade, squad, unit, search, semester);
   if (!filtered.length) { showToast('沒有資料可匯出', 'error'); return; }
-  const headers = ['號碼','大隊','中隊','分隊','姓名','性別','年齡','年齡層',
+  const headers =['號碼','大隊','中隊','分隊','姓名','性別','年齡','年齡層',
     '立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)',
     '懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
-  const data = filtered.map((r,i) => [
+  const data = filtered.map((r,i) =>[
     i+1, r.brigade,
     r.squad || getSquadForUnit(r.unit),
     r.unit, r.name, r.gender, r.age, r.ageGroup,
@@ -2012,15 +2004,13 @@ function exportExcel() {
 
   if (!filtered.length) { showToast('沒有資料可匯出', 'error'); return; }
 
-  // Sheet 1: Raw input
-  const inputHeaders = ['號碼','大隊','單位','姓名','性別','年齡','年齡層','立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)','懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
-  const inputData = filtered.map((r,i) => [i+1, r.brigade, r.unit, r.name, r.gender, r.age, r.ageGroup, r.standing_jump, r.ball_throw, r.shuttle_run, r.deadlift, r.chin_up_count, r.chin_up_sec, r.loaded_walk, r.run_1500]);
+  const inputHeaders =['號碼','大隊','單位','姓名','性別','年齡','年齡層','立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)','懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
+  const inputData = filtered.map((r,i) =>[i+1, r.brigade, r.unit, r.name, r.gender, r.age, r.ageGroup, r.standing_jump, r.ball_throw, r.shuttle_run, r.deadlift, r.chin_up_count, r.chin_up_sec, r.loaded_walk, r.run_1500]);
 
-  // Sheet 2: Results
-  const resHeaders = ['大隊','單位','姓名','性別','年齡層','立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步','總分','及格'];
+  const resHeaders =['大隊','單位','姓名','性別','年齡層','立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步','總分','及格'];
   const resData = filtered.map(r => {
     const sc = calcRecord(r);
-    return [r.brigade, r.unit, r.name, r.gender, r.ageGroup, sc.立定跳遠, sc.後拋擲遠, sc.折返跑, sc.菱形槓硬舉, sc.懸吊, sc.負重行走, sc.跑步, sc.total, sc.pass?'及格':'不及格'];
+    return[r.brigade, r.unit, r.name, r.gender, r.ageGroup, sc.立定跳遠, sc.後拋擲遠, sc.折返跑, sc.菱形槓硬舉, sc.懸吊, sc.負重行走, sc.跑步, sc.total, sc.pass?'及格':'不及格'];
   });
 
   const wb = XLSX.utils.book_new();
@@ -2044,22 +2034,17 @@ function refreshAll() {
 function init() {
   loadData();
 
-  // Populate year/brigade selects
   populatePeriodSelect(document.getElementById('dash-period'), DEFAULT_PERIOD, true);
-  populatePeriodSelect(document.getElementById('rec-period'), DEFAULT_PERIOD, false);
+  populatePeriodSelect(document.getElementById('rec-period'), DEFAULT_PERIOD, true);
   populatePeriodSelect(document.getElementById('res-period'), DEFAULT_PERIOD, true);
-  populatePeriodSelect(document.getElementById('ana-period'), DEFAULT_PERIOD, true);
-  ['dash-brigade','rec-brigade','res-brigade','ana-brigade'].forEach(id => {
+  populatePeriodSelect(document.getElementById('ana-period'), DEFAULT_PERIOD, true);['dash-brigade','rec-brigade','res-brigade','ana-brigade'].forEach(id => {
     populateBrigadeSelect(document.getElementById(id), true);
-  });
-  // 初始化中隊和分隊選單（全部）
-  ['dash-squad','rec-squad','res-squad','ana-squad'].forEach(id => {
+  });['dash-squad','rec-squad','res-squad','ana-squad'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = '<option value="all">全部</option>';
   });
   populateUnitSelect(document.getElementById('rec-unit'), null, null, true);
 
-  // 通用大隊→中隊→分隊聯動設定
   function setupBrigadeSquadUnit(brigadeId, squadId, unitId, onRefresh) {
     const bEl = document.getElementById(brigadeId);
     const sEl = document.getElementById(squadId);
@@ -2079,47 +2064,26 @@ function init() {
     if (uEl) uEl.onchange = onRefresh;
   }
 
-  // Modal 中隊→分隊聯動（含大隊本部隱藏分隊邏輯）
-  function setupModalSquadUnit(squadEl, unitEl, getBrigade) {
-    squadEl.onchange = () => {
-      const sq = squadEl.value;
-      const b = getBrigade();
-      if (sq === '大隊本部') {
-        unitEl.innerHTML = '<option value="大隊本部">大隊本部</option>';
-        unitEl.closest('.form-group').style.display = 'none';
-      } else {
-        unitEl.closest('.form-group').style.display = '';
-        populateUnitSelect(unitEl, b, sq, false);
-      }
-    };
-  }
-
-  // Dashboard filter events
   document.getElementById('dash-period').onchange = renderDashboard;
   setupBrigadeSquadUnit('dash-brigade','dash-squad', null, renderDashboard);
 
-  // Records filter events
   const recRefresh = () => { recPage=1; renderRecords(); };
   document.getElementById('rec-period').onchange = recRefresh;
   setupBrigadeSquadUnit('rec-brigade','rec-squad','rec-unit', recRefresh);
   document.getElementById('rec-search').oninput = recRefresh;
 
-  // Results filter events
   const resRefresh = () => { resPage=1; renderResults(); };
   document.getElementById('res-period').onchange = resRefresh;
   setupBrigadeSquadUnit('res-brigade','res-squad', null, resRefresh);
   document.getElementById('res-status').onchange = resRefresh;
 
-  // Analysis filter events
   document.getElementById('ana-period').onchange = renderAnalysis;
   setupBrigadeSquadUnit('ana-brigade','ana-squad', null, renderAnalysis);
 
-  // 個人成長 Enter 查詢
   document.getElementById('personal-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') renderPersonalChart();
   });
 
-  // Formula events
   document.getElementById('formula-gender').onchange = () => {
     const g = document.getElementById('formula-gender').value;
     const ageEl = document.getElementById('formula-age');
@@ -2128,7 +2092,6 @@ function init() {
   };
   document.getElementById('formula-age').onchange = renderFormula;
 
-  // Sub-tabs
   const anaPeriodWrap = document.getElementById('ana-period').parentElement;
   document.querySelectorAll('.sub-tab').forEach(btn => {
     btn.onclick = () => {
@@ -2136,7 +2099,6 @@ function init() {
       document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('sub-' + btn.dataset.sub).classList.add('active');
-      // 跨年度趨勢和個人成長不使用期間篩選
       const hidePeriod = btn.dataset.sub === 'trend' || btn.dataset.sub === 'personal';
       document.getElementById('ana-period').style.display = hidePeriod ? 'none' : '';
       if (anaPeriodWrap) {
@@ -2147,12 +2109,10 @@ function init() {
     };
   });
 
-  // Nav items
   document.querySelectorAll('.nav-item').forEach(item => {
     item.onclick = () => navigateTo(item.dataset.page);
   });
 
-  // Hamburger
   document.getElementById('hamburgerBtn').onclick = () => {
     document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('overlay').classList.toggle('show');
@@ -2162,20 +2122,17 @@ function init() {
     document.getElementById('overlay').classList.remove('show');
   };
 
-  // Add button
   document.getElementById('btn-add').onclick = () => openAddModal(null);
   document.getElementById('modal-close').onclick = closeAddModal;
   document.getElementById('modal-cancel').onclick = closeAddModal;
   document.getElementById('modal-save').onclick = savePersonModal;
   document.getElementById('modal-person').onclick = e => { if (e.target === e.currentTarget) closeAddModal(); };
 
-  // Import Excel
   document.getElementById('btn-import').onclick = () => document.getElementById('file-input').click();
   document.getElementById('file-input').onchange = e => {
     if (e.target.files[0]) { importExcel(e.target.files[0]); e.target.value=''; }
   };
 
-  // Sync GSheet
   document.getElementById('btn-sync').onclick = () => {
     if (GAS_URL) {
       const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
@@ -2190,43 +2147,52 @@ function init() {
     } else showToast('尚未設定 GAS_URL', 'error');
   };
 
-  // Clear all
   document.getElementById('btn-clear').onclick = () => {
     showConfirm('清除全部', '確定要清除所有資料嗎？此操作無法復原！', () => {
-      records = [];
-      saveData();
+      records =
+        saveData();
       renderRecords();
       showToast('已清除全部資料', 'success');
-    });
+    }
   };
 
-  // Export Excel
-  document.getElementById('btn-export').onclick = exportExcel;
-  document.getElementById('btn-export-rec').onclick = exportRawRecords;
-
-  // Confirm modal
-  document.getElementById('confirm-close').onclick = () => document.getElementById('modal-confirm').classList.remove('show');
-  document.getElementById('confirm-cancel').onclick = () => document.getElementById('modal-confirm').classList.remove('show');
-  document.getElementById('confirm-ok').onclick = () => {
-    document.getElementById('modal-confirm').classList.remove('show');
-    if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+  document.getElementById('btn-import').onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = e => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const wb = XLSX.read(evt.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws);
+        data.forEach(row => {
+          // 這裡實作上述的模糊比對與去重
+          const k = `${year}|${sem}|${row.姓名}`;
+          records.push({ year, semester: sem, name: row.姓名, unit: row.單位, brigade: row.大隊 });
+        });
+        saveData(); renderRecords(); showToast('匯入完成');
+      };
+      reader.readAsBinaryString(file);
+    };
+    input.click();
   };
-  document.getElementById('modal-confirm').onclick = e => {
-    if (e.target === e.currentTarget) document.getElementById('modal-confirm').classList.remove('show');
-  };
 
-  // Hash check
-  checkHash();
-  window.onhashchange = checkHash;
+  refreshAll();
+}
 
-  // Initial render
-  renderDashboard();
+function refreshAll() {
+  const tbody = document.getElementById('records-tbody');
+  tbody.innerHTML = records.map(r => `<tr><td>${r.brigade}</td><td>${r.unit}</td><td>${r.name}</td><td>${r.gender||'男'}</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td><button onclick="deleteRec('${r.name}')">刪除</button></td></tr>`).join('');
+}
 
-  // 下載範本
-  document.getElementById('btn-template').onclick = downloadTemplate;
-
-  // Load from GAS if configured — 不帶年度，一次載入全部資料
-  if (GAS_URL) { loadFromGAS('', ''); }
+function showToast(m, type='success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerText = m;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
