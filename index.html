@@ -977,26 +977,6 @@ function calcScore(gender, ageGroup, item, value) {
   }
 }
 
-
-function getItemMaxScoreForRecord(r, item) {
-  const gender = r.gender || '男';
-  const ageGroup = gender === '女' ? '不分年齡' : (r.ageGroup || getAgeGroup(r.age));
-  if (item === '懸吊') {
-    return Math.max(
-      getItemMaxScore(gender, ageGroup, '懸吊屈體'),
-      getItemMaxScore(gender, ageGroup, '懸吊秒數')
-    );
-  }
-  const sourceItem = item === '跑步' ? '1500跑步' : item;
-  return getItemMaxScore(gender, ageGroup, sourceItem);
-}
-
-function getItemMaxScore(gender, ageGroup, item) {
-  const ag = gender === '女' ? '不分年齡' : ageGroup;
-  const rows = CONV_TABLE[gender]?.[ag]?.[item] || [];
-  return rows.reduce((max, row) => Math.max(max, Number(row.score) || 0), 0);
-}
-
 function calcRecord(r) {
   const 懸吊屈體score = calcScore(r.gender, r.ageGroup, '懸吊屈體', r.chin_up_count);
   const 懸吊秒數score = calcScore(r.gender, r.ageGroup, '懸吊秒數', r.chin_up_sec);
@@ -1491,10 +1471,9 @@ function renderAnalysisSub(tab) {
       if (!filtered.length) return 0;
       const sum = filtered.reduce((acc,r) => {
         const sc = calcRecord(r);
-        const maxScore = getItemMaxScoreForRecord(r, item);
-        return acc + (maxScore ? ((sc[item] || 0) / maxScore * 100) : 0);
+        return acc + (sc[item]||0);
       }, 0);
-      return +(sum/filtered.length).toFixed(1);
+      return +(sum/filtered.length).toFixed(2);
     });
 
     if (chartRadar) chartRadar.destroy();
@@ -1504,7 +1483,7 @@ function renderAnalysisSub(tab) {
       data: {
         labels: items,
         datasets: [{
-          label: '平均達成率 (%)',
+          label: '平均得分',
           data: avgs,
           backgroundColor: 'rgba(220,38,38,0.15)',
           borderColor: '#dc2626',
@@ -1514,11 +1493,8 @@ function renderAnalysisSub(tab) {
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        scales: { r: { min:0, max:100, ticks: { font:{family:'Noto Sans TC',size:10}, callback:v=>v+'%' }, pointLabels:{font:{family:'Noto Sans TC',size:12}} } },
-        plugins: {
-          legend: { labels:{font:{family:'Noto Sans TC'}} },
-          tooltip: { callbacks: { label: ctx => `平均達成率：${ctx.parsed.r}%` } }
-        }
+        scales: { r: { min:0, max:20, ticks: { font:{family:'Noto Sans TC',size:10} }, pointLabels:{font:{family:'Noto Sans TC',size:12}} } },
+        plugins: { legend: { labels:{font:{family:'Noto Sans TC'}} } }
       }
     });
   }
