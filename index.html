@@ -958,14 +958,16 @@ async function loadFromGAS(year, semester) {
 
 // 下載空白範本
 function downloadTemplate() {
+  const note = ['【說明】匯入前請先在頁面上選好「年度/學期」，匯入的資料會自動套用所選年度。懸吊屈體(次)與(秒)二擇一填入即可。'];
   const headers = ['號碼','大隊','單位','姓名','性別','年齡','年齡層',
     '立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)',
     '懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
   const example = [1,'第一大隊','古亭分隊','王小明','男',35,'30-39',
     210,12,10,120,8,'',130,420];
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-  // 設定欄寬
+  const ws = XLSX.utils.aoa_to_sheet([note, headers, example]);
+  // 合併說明列
+  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:14} }];
   ws['!cols'] = headers.map((_, i) => ({ wch: i < 3 ? 12 : i < 7 ? 10 : 14 }));
   XLSX.utils.book_append_sheet(wb, ws, '成績輸入');
   XLSX.writeFile(wb, '常訓體能成績_匯入範本.xlsx');
@@ -997,17 +999,18 @@ async function saveToGAS(year, semester) {
 }
 
 // ==================== PERIOD (年度+半年) ====================
-// 產生「114年上半年」「114年下半年」的合併選單
-const _baseYear = 108;
+// 期間選單：最早為 114年上半年，持續到未來年度
+const _baseYear = 114;
+const _baseSemester = '上半年'; // 114年只有上半年起算
 const _maxYear = _rocYear + 1;
 const YEARS = Array.from({length: _maxYear - _baseYear + 1}, (_, i) => String(_baseYear + i));
 
-// 產生所有 period 選項：「114年上半年」「114年下半年」…
+// 產生所有 period 選項（最新在最前），最早為 114年上半年
 function getPeriodOptions() {
   const opts = [];
   for (let y = _maxYear; y >= _baseYear; y--) {
     opts.push(`${y}年上半年`);
-    opts.push(`${y}年下半年`);
+    if (y > _baseYear) opts.push(`${y}年下半年`);
   }
   return opts;
 }
@@ -1609,7 +1612,8 @@ function importExcel(file) {
         const age = parseInt(row[5]);
         const name = String(row[3]||'').trim();
         const unit = String(row[2]||'').trim();
-        if (!name) { skipped++; continue; }
+        // 跳過說明列、標題列
+        if (!name || name === '姓名' || name.startsWith('【')) { skipped++; continue; }
 
         const rec = {
           year: importYear,
