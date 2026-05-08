@@ -641,6 +641,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <button class="sub-tab active" data-sub="weakness">各項弱點</button>
           <button class="sub-tab" data-sub="distribution">分布分析</button>
           <button class="sub-tab" data-sub="compare">大隊比較</button>
+          <button class="sub-tab" data-sub="trend">跨年度趨勢</button>
+          <button class="sub-tab" data-sub="personal">個人成長</button>
         </div>
         <div class="sub-page active" id="sub-weakness">
           <div class="chart-card" style="max-width:500px;margin:0 auto">
@@ -660,6 +662,26 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <div class="chart-card">
             <h3>各大隊及格率比較</h3>
             <div class="chart-wrap" style="height:320px"><canvas id="chart-compare"></canvas></div>
+          </div>
+        </div>
+        <div class="sub-page" id="sub-trend">
+          <div class="chart-card">
+            <h3>各期間及格率趨勢</h3>
+            <div class="chart-wrap" style="height:300px"><canvas id="chart-trend-pass"></canvas></div>
+          </div>
+          <div class="chart-card" style="margin-top:16px">
+            <h3>各期間平均總分趨勢</h3>
+            <div class="chart-wrap" style="height:300px"><canvas id="chart-trend-score"></canvas></div>
+          </div>
+        </div>
+        <div class="sub-page" id="sub-personal">
+          <div class="filter-bar" style="margin-bottom:16px">
+            <span class="label">姓名</span>
+            <input type="search" id="personal-name" placeholder="輸入姓名..." style="width:140px">
+            <button class="btn btn-red" onclick="renderPersonalChart()">查詢</button>
+          </div>
+          <div id="personal-result-area">
+            <p style="color:var(--text-light);text-align:center;padding:40px 0">輸入姓名後點擊查詢</p>
           </div>
         </div>
       </div>
@@ -1341,7 +1363,7 @@ function renderResults() {
 }
 
 // ==================== ANALYSIS ====================
-let chartRadar=null, chartDist=null, chartCompare=null;
+let chartRadar=null, chartDist=null, chartCompare=null, chartTrendPass=null, chartTrendScore=null, chartPersonal=null;
 
 function renderAnalysis() {
   const activeTab = document.querySelector('.sub-tab.active')?.dataset.sub || 'weakness';
@@ -1444,6 +1466,158 @@ function renderAnalysisSub(tab) {
       }
     });
   }
+
+  if (tab === 'trend') {
+    // 取得所有期間（依年份+學期排序，上半年在前）
+    const brigadeFilter = brigade && brigade !== 'all' ? brigade : null;
+    const src = brigadeFilter ? records.filter(r => r.brigade === brigadeFilter) : records;
+
+    const periodMap = {};
+    src.forEach(r => {
+      const p = `${r.year}年${r.semester||'上半年'}`;
+      if (!periodMap[p]) periodMap[p] = [];
+      periodMap[p].push(r);
+    });
+    const sortedPeriods = Object.keys(periodMap).sort((a, b) => {
+      const [ya, sa] = [parseInt(a), a.includes('上半年') ? 0 : 1];
+      const [yb, sb] = [parseInt(b), b.includes('上半年') ? 0 : 1];
+      return ya !== yb ? ya - yb : sa - sb;
+    });
+
+    const passRates = sortedPeriods.map(p => {
+      const arr = periodMap[p];
+      const pass = arr.filter(r => calcRecord(r).pass).length;
+      return arr.length ? +(pass/arr.length*100).toFixed(1) : 0;
+    });
+    const avgScores = sortedPeriods.map(p => {
+      const arr = periodMap[p];
+      if (!arr.length) return 0;
+      return +(arr.reduce((s,r) => s + calcRecord(r).total, 0) / arr.length).toFixed(1);
+    });
+
+    if (chartTrendPass) chartTrendPass.destroy();
+    chartTrendPass = new Chart(document.getElementById('chart-trend-pass').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: sortedPeriods,
+        datasets: [{ label: '及格率(%)', data: passRates, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend:{labels:{font:{family:'Noto Sans TC'}}}, tooltip:{callbacks:{label:c=>`${c.parsed.y}%`}} },
+        scales: {
+          x:{ticks:{font:{family:'Noto Sans TC'}}},
+          y:{min:0,max:100,ticks:{font:{family:'Noto Sans TC'},callback:v=>v+'%'}}
+        }
+      }
+    });
+
+    if (chartTrendScore) chartTrendScore.destroy();
+    chartTrendScore = new Chart(document.getElementById('chart-trend-score').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: sortedPeriods,
+        datasets: [{ label: '平均總分', data: avgScores, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.1)', tension: 0.3, pointRadius: 5, fill: true }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend:{labels:{font:{family:'Noto Sans TC'}}} },
+        scales: { x:{ticks:{font:{family:'Noto Sans TC'}}}, y:{beginAtZero:true,ticks:{font:{family:'Noto Sans TC'}}} }
+      }
+    });
+  }
+}
+
+function renderPersonalChart() {
+  const name = document.getElementById('personal-name').value.trim();
+  const area = document.getElementById('personal-result-area');
+  if (!name) { area.innerHTML = '<p style="color:var(--text-light);text-align:center;padding:40px 0">請輸入姓名</p>'; return; }
+
+  const matched = records.filter(r => r.name === name);
+  if (!matched.length) {
+    area.innerHTML = `<p style="color:var(--text-light);text-align:center;padding:40px 0">查無「${name}」的紀錄</p>`;
+    return;
+  }
+
+  // 如有同名不同單位，群組列出
+  const unitGroups = {};
+  matched.forEach(r => {
+    const key = `${r.brigade} ${r.unit}`;
+    if (!unitGroups[key]) unitGroups[key] = [];
+    unitGroups[key].push(r);
+  });
+
+  area.innerHTML = Object.entries(unitGroups).map(([unit, recs], gi) => {
+    const sorted = [...recs].sort((a,b) => {
+      const ya = parseInt(a.year)||0, yb = parseInt(b.year)||0;
+      if (ya !== yb) return ya - yb;
+      return (a.semester||'').includes('上') ? -1 : 1;
+    });
+    const labels = sorted.map(r => `${r.year}年${r.semester||''}`);
+    const totalScores = sorted.map(r => calcRecord(r).total);
+    const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
+    const itemColors = ['#dc2626','#b91c1c','#f59e0b','#059669','#2563eb','#7c3aed','#db2777'];
+    const datasets = items.map((item, i) => ({
+      label: item,
+      data: sorted.map(r => calcRecord(r)[item] || 0),
+      borderColor: itemColors[i],
+      backgroundColor: 'transparent',
+      tension: 0.3, pointRadius: 4, borderWidth: 1.5
+    }));
+    datasets.unshift({
+      label: '總分',
+      data: totalScores,
+      borderColor: '#111827',
+      backgroundColor: 'rgba(17,24,39,0.08)',
+      tension: 0.3, pointRadius: 5, borderWidth: 2.5, fill: true,
+      yAxisID: 'yTotal'
+    });
+
+    const canvasId = `chart-personal-${gi}`;
+    return `<div class="chart-card" style="margin-bottom:16px">
+      <h3>${name}（${unit}）歷年成績趨勢</h3>
+      <div style="overflow-x:auto"><div style="min-width:${Math.max(300,labels.length*80)}px;height:320px"><canvas id="${canvasId}"></canvas></div></div>
+    </div>`;
+  }).join('');
+
+  // 繪圖（DOM 需先渲染）
+  requestAnimationFrame(() => {
+    if (chartPersonal) { (Array.isArray(chartPersonal)?chartPersonal:[chartPersonal]).forEach(c=>c.destroy()); }
+    chartPersonal = [];
+    Object.entries(unitGroups).forEach(([unit, recs], gi) => {
+      const sorted = [...recs].sort((a,b)=>{
+        const ya=parseInt(a.year)||0,yb=parseInt(b.year)||0;
+        return ya!==yb?ya-yb:(a.semester||'').includes('上')?-1:1;
+      });
+      const labels = sorted.map(r=>`${r.year}年${r.semester||''}`);
+      const items = ['立定跳遠','後拋擲遠','折返跑','菱形槓硬舉','懸吊','負重行走','跑步'];
+      const itemColors = ['#dc2626','#b91c1c','#f59e0b','#059669','#2563eb','#7c3aed','#db2777'];
+      const datasets = items.map((item,i)=>({
+        label: item, data: sorted.map(r=>calcRecord(r)[item]||0),
+        borderColor: itemColors[i], backgroundColor:'transparent',
+        tension:0.3, pointRadius:4, borderWidth:1.5, yAxisID:'yItem'
+      }));
+      datasets.unshift({
+        label:'總分', data: sorted.map(r=>calcRecord(r).total),
+        borderColor:'#111827', backgroundColor:'rgba(17,24,39,0.08)',
+        tension:0.3, pointRadius:5, borderWidth:2.5, fill:true, yAxisID:'yTotal'
+      });
+      const c = new Chart(document.getElementById(`chart-personal-${gi}`).getContext('2d'), {
+        type:'line',
+        data:{ labels, datasets },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{labels:{font:{family:'Noto Sans TC'},boxWidth:12}} },
+          scales:{
+            yTotal:{position:'left',title:{display:true,text:'總分',font:{family:'Noto Sans TC'}},min:0,ticks:{font:{family:'Noto Sans TC'}}},
+            yItem:{position:'right',title:{display:true,text:'各科分數',font:{family:'Noto Sans TC'}},min:0,max:20,grid:{drawOnChartArea:false},ticks:{font:{family:'Noto Sans TC'}}},
+            x:{ticks:{font:{family:'Noto Sans TC'}}}
+          }
+        }
+      });
+      chartPersonal.push(c);
+    });
+  });
 }
 
 // ==================== FORMULA PAGE ====================
@@ -1756,6 +1930,11 @@ function init() {
   document.getElementById('ana-period').onchange = renderAnalysis;
   document.getElementById('ana-brigade').onchange = renderAnalysis;
 
+  // 個人成長 Enter 查詢
+  document.getElementById('personal-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') renderPersonalChart();
+  });
+
   // Formula events
   document.getElementById('formula-gender').onchange = () => {
     const g = document.getElementById('formula-gender').value;
@@ -1766,12 +1945,20 @@ function init() {
   document.getElementById('formula-age').onchange = renderFormula;
 
   // Sub-tabs
+  const anaPeriodWrap = document.getElementById('ana-period').parentElement;
   document.querySelectorAll('.sub-tab').forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('sub-' + btn.dataset.sub).classList.add('active');
+      // 跨年度趨勢和個人成長不使用期間篩選
+      const hidePeriod = btn.dataset.sub === 'trend' || btn.dataset.sub === 'personal';
+      document.getElementById('ana-period').style.display = hidePeriod ? 'none' : '';
+      if (anaPeriodWrap) {
+        const label = anaPeriodWrap.querySelector('.label');
+        if (label) label.style.display = hidePeriod ? 'none' : '';
+      }
       renderAnalysisSub(btn.dataset.sub);
     };
   });
