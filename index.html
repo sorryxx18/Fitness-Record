@@ -568,6 +568,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <button class="btn btn-white" id="btn-template"><i class="ri-file-download-line"></i> 下載範本</button>
           <button class="btn btn-white" id="btn-import"><i class="ri-upload-2-line"></i> 匯入Excel</button>
           <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+          <button class="btn btn-green" id="btn-export-rec"><i class="ri-file-excel-line"></i> 匯出原始資料</button>
           <button class="btn btn-white" id="btn-sync"><i class="ri-cloud-line"></i> 同步GSheet</button>
           <button class="btn btn-danger" id="btn-clear"><i class="ri-delete-bin-line"></i> 清除全部</button>
         </div>
@@ -840,21 +841,25 @@ const AVAILABLE_YEARS = ['114', '115', '116', '117'].includes(DEFAULT_YEAR)
 // ==================== UNIT MAP ====================
 const UNIT_MAP = {
   '第一大隊': {
+    '大隊本部': [],
     '中正中隊': ['中正中隊','華山分隊','泉州分隊','城中分隊','忠孝分隊','古亭分隊'],
     '萬華中隊': ['萬華中隊','雙園分隊','龍山分隊'],
     '文山中隊': ['文山中隊','萬芳分隊','木柵分隊','景美分隊','寶橋分隊']
   },
   '第二大隊': {
+    '大隊本部': [],
     '大安中隊': ['大安中隊','金華分隊','安和分隊','復興分隊'],
     '南港中隊': ['南港中隊','南港分隊','舊莊分隊','成德分隊'],
     '信義中隊': ['信義中隊','信義分隊','永吉分隊','莊敬分隊']
   },
   '第三大隊': {
+    '大隊本部': [],
     '中山中隊': ['中山中隊','大直分隊','松江分隊','圓山分隊','建國分隊'],
     '松山中隊': ['松山中隊','八德分隊','中崙分隊'],
     '內湖中隊': ['內湖中隊','東湖分隊','大湖分隊','內湖分隊','民權分隊']
   },
   '第四大隊': {
+    '大隊本部': [],
     '大同中隊': ['大同中隊','建成分隊','延平分隊','大同分隊'],
     '士林中隊': ['士林中隊','山仔后分隊','天母分隊','福安分隊','社子分隊','劍潭分隊','雙溪分隊','後港分隊'],
     '北投中隊': ['北投中隊','陽明山分隊','光明分隊','關渡分隊','石牌分隊','秀山分隊']
@@ -891,6 +896,7 @@ function getBrigadeForUnit(unit) {
 }
 
 function getSquadForUnit(unit) {
+  if (unit === '大隊本部') return '大隊本部';
   for (const b of BRIGADES) {
     for (const [sq, units] of Object.entries(UNIT_MAP[b])) {
       if (units.includes(unit)) return sq;
@@ -904,17 +910,34 @@ function getSquadsForBrigade(brigade) {
   return Object.keys(UNIT_MAP[brigade] || {});
 }
 
+// 根據大隊+單位自動判斷所屬中隊（用於匯入）
+function detectUnitInfo(brigade, unitInput) {
+  const u = String(unitInput || '').trim();
+  // 1. 單位 == 大隊名稱 → 大隊本部
+  if (BRIGADES.includes(u) || u === brigade) {
+    return { brigade, squad: '大隊本部', unit: '大隊本部' };
+  }
+  // 2. 單位是中隊名稱 → 中隊本部人員
+  for (const b of BRIGADES) {
+    if (UNIT_MAP[b][u]) {
+      return { brigade: brigade || b, squad: u, unit: u };
+    }
+  }
+  // 3. 單位是分隊名稱 → 自動帶入所屬大隊+中隊
+  for (const b of BRIGADES) {
+    for (const [sq, units] of Object.entries(UNIT_MAP[b])) {
+      if (units.includes(u)) {
+        return { brigade: brigade || b, squad: sq, unit: u };
+      }
+    }
+  }
+  return { brigade, squad: '', unit: u };
+}
+
 function populateSquadSelect(el, brigade, withAll) {
   const squads = getSquadsForBrigade(brigade);
   const allOpt = withAll ? '<option value="all">全部</option>' : '<option value="">請選擇中隊</option>';
   el.innerHTML = allOpt + squads.map(s => `<option value="${s}">${s}</option>`).join('');
-}
-
-function cascadeSquadUnit(squadEl, unitEl, brigade, withAll) {
-  squadEl.onchange = () => {
-    const sq = squadEl.value;
-    populateUnitSelect(unitEl, brigade === 'all' ? null : brigade, sq === 'all' ? null : sq, withAll);
-  };
 }
 
 // ==================== CONVERSION TABLE ====================
@@ -1112,6 +1135,16 @@ function populateBrigadeSelect(el, withAll) {
 }
 
 function populateUnitSelect(el, brigade, squad, withAll) {
+  if (!el) return;
+  // 大隊本部沒有分隊
+  if (squad === '大隊本部') {
+    el.innerHTML = '<option value="大隊本部">大隊本部</option>';
+    el.closest?.('.form-group')?.style && (el.style.display = 'none');
+    el.parentElement && (el.parentElement.style.display = 'none');
+    return;
+  }
+  el.style.display = '';
+  if (el.parentElement) el.parentElement.style.display = '';
   const units = getAllUnits(brigade === 'all' ? null : brigade, squad === 'all' ? null : squad);
   const allOpt = (withAll !== false) ? '<option value="all">全部</option>' : '<option value="">請選擇分隊</option>';
   el.innerHTML = allOpt + units.map(u => `<option value="${u}">${u}</option>`).join('');
@@ -1190,8 +1223,8 @@ function filterRecords(year, brigade, squad, unit, search, semester) {
     if (semester && semester !== 'all' && semester !== '' && r.semester !== semester) return false;
     if (brigade && brigade !== 'all' && brigade !== '' && r.brigade !== brigade) return false;
     if (squad && squad !== 'all' && squad !== '') {
-      const squadUnits = UNIT_MAP[r.brigade]?.[squad] || [];
-      if (!squadUnits.includes(r.unit)) return false;
+      const rSquad = r.squad || getSquadForUnit(r.unit);
+      if (rSquad !== squad) return false;
     }
     if (unit && unit !== 'all' && unit !== '' && r.unit !== unit) return false;
     if (search && search.trim() && !r.name.includes(search.trim())) return false;
@@ -1745,10 +1778,9 @@ function openAddModal(id) {
   fb.onchange = () => {
     populateSquadSelect(fsq, fb.value, false);
     populateUnitSelect(fu, fb.value, null, false);
+    fu.closest('.form-group').style.display = '';
   };
-  fsq.onchange = () => {
-    populateUnitSelect(fu, fb.value, fsq.value, false);
-  };
+  setupModalSquadUnit(fsq, fu, () => fb.value);
 
   if (id) {
     const r = records.find(x => x.id === id);
@@ -1799,6 +1831,7 @@ function savePersonModal() {
     year: recYear || DEFAULT_YEAR,
     semester: recSemester || '上半年',
     brigade: document.getElementById('f-brigade').value,
+    squad: document.getElementById('f-squad').value,
     unit: document.getElementById('f-unit').value,
     name,
     gender: document.getElementById('f-gender').value,
@@ -1866,11 +1899,14 @@ function importExcel(file) {
         // 跳過說明列、標題列
         if (!name || name === '姓名' || name.startsWith('【')) { skipped++; continue; }
 
+        const rawBrigade = String(row[1]||'').trim();
+        const info = detectUnitInfo(rawBrigade, unit);
         const rec = {
           year: importYear,
           semester: importSemester,
-          brigade: String(row[1]||'').trim(),
-          unit,
+          brigade: info.brigade || rawBrigade,
+          squad: info.squad || '',
+          unit: info.unit || unit,
           name,
           gender: String(row[4]||'男').trim(),
           age: isNaN(age) ? null : age,
@@ -1909,11 +1945,39 @@ function importExcel(file) {
 }
 
 // ==================== EXCEL EXPORT ====================
+// 成績管理頁匯出原始資料
+function exportRawRecords() {
+  const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
+  const brigade = document.getElementById('rec-brigade').value;
+  const squad = document.getElementById('rec-squad')?.value || '';
+  const unit = document.getElementById('rec-unit').value;
+  const search = document.getElementById('rec-search').value;
+  const filtered = filterRecords(year, brigade, squad, unit, search, semester);
+  if (!filtered.length) { showToast('沒有資料可匯出', 'error'); return; }
+  const headers = ['號碼','大隊','中隊','分隊','姓名','性別','年齡','年齡層',
+    '立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)',
+    '懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
+  const data = filtered.map((r,i) => [
+    i+1, r.brigade,
+    r.squad || getSquadForUnit(r.unit),
+    r.unit, r.name, r.gender, r.age, r.ageGroup,
+    r.standing_jump, r.ball_throw, r.shuttle_run, r.deadlift,
+    r.chin_up_count, r.chin_up_sec, r.loaded_walk, r.run_1500
+  ]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  XLSX.utils.book_append_sheet(wb, ws, '原始資料');
+  const label = semester ? `${year}年${semester}` : (year || '全部');
+  XLSX.writeFile(wb, `常訓體能原始資料_${label}.xlsx`);
+  showToast('匯出成功', 'success');
+}
+
 function exportExcel() {
   const {year, semester} = parsePeriod(document.getElementById('res-period').value);
   const brigade = document.getElementById('res-brigade').value;
+  const squad = document.getElementById('res-squad')?.value || '';
   const status = document.getElementById('res-status').value;
-  let filtered = filterRecords(year, brigade, null, '', semester);
+  let filtered = filterRecords(year, brigade, squad, '', '', semester);
   if (status === 'pass') filtered = filtered.filter(r => calcRecord(r).pass);
   if (status === 'fail') filtered = filtered.filter(r => !calcRecord(r).pass);
 
@@ -1984,6 +2048,21 @@ function init() {
       onRefresh();
     };
     if (uEl) uEl.onchange = onRefresh;
+  }
+
+  // Modal 中隊→分隊聯動（含大隊本部隱藏分隊邏輯）
+  function setupModalSquadUnit(squadEl, unitEl, getBrigade) {
+    squadEl.onchange = () => {
+      const sq = squadEl.value;
+      const b = getBrigade();
+      if (sq === '大隊本部') {
+        unitEl.innerHTML = '<option value="大隊本部">大隊本部</option>';
+        unitEl.closest('.form-group').style.display = 'none';
+      } else {
+        unitEl.closest('.form-group').style.display = '';
+        populateUnitSelect(unitEl, b, sq, false);
+      }
+    };
   }
 
   // Dashboard filter events
@@ -2087,6 +2166,7 @@ function init() {
 
   // Export Excel
   document.getElementById('btn-export').onclick = exportExcel;
+  document.getElementById('btn-export-rec').onclick = exportRawRecords;
 
   // Confirm modal
   document.getElementById('confirm-close').onclick = () => document.getElementById('modal-confirm').classList.remove('show');
