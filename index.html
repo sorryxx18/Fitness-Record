@@ -561,6 +561,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         </div>
         <div class="toolbar">
           <button class="btn btn-red" id="btn-add"><i class="ri-user-add-line"></i> 新增人員</button>
+          <button class="btn btn-white" id="btn-template"><i class="ri-file-download-line"></i> 下載範本</button>
           <button class="btn btn-white" id="btn-import"><i class="ri-upload-2-line"></i> 匯入Excel</button>
           <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
           <button class="btn btn-white" id="btn-sync"><i class="ri-cloud-line"></i> 同步GSheet</button>
@@ -939,6 +940,7 @@ async function loadFromGAS(year, semester) {
     const resp = await fetch(GAS_URL + '?' + params.toString());
     const data = await resp.json();
     if (data && data.ok && Array.isArray(data.records)) {
+      // 以 id 為 key 合併，GSheet 資料優先
       const map = {};
       records.forEach(r => { map[r.id] = r; });
       data.records.forEach(r => { map[r.id] = r; });
@@ -952,6 +954,22 @@ async function loadFromGAS(year, semester) {
   } catch(e) {
     showToast('同步失敗: ' + e.message, 'error');
   }
+}
+
+// 下載空白範本
+function downloadTemplate() {
+  const headers = ['號碼','大隊','單位','姓名','性別','年齡','年齡層',
+    '立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)',
+    '懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];
+  const example = [1,'第一大隊','古亭分隊','王小明','男',35,'30-39',
+    210,12,10,120,8,'',130,420];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+  // 設定欄寬
+  ws['!cols'] = headers.map((_, i) => ({ wch: i < 3 ? 12 : i < 7 ? 10 : 14 }));
+  XLSX.utils.book_append_sheet(wb, ws, '成績輸入');
+  XLSX.writeFile(wb, '常訓體能成績_匯入範本.xlsx');
+  showToast('範本已下載', 'success');
 }
 
 async function saveToGAS(year, semester) {
@@ -1573,21 +1591,32 @@ function importExcel(file) {
       const wb = XLSX.read(e.target.result, { type:'array' });
       let ws = wb.Sheets['成績輸入'] || wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1 });
-      let imported = 0, skipped = 0;
+      let imported = 0, updated = 0, skipped = 0;
       const {year: currentYear, semester: currentSemester} = parsePeriod(document.getElementById('rec-period').value);
       const importYear = currentYear || DEFAULT_YEAR;
       const importSemester = currentSemester || parsePeriod(DEFAULT_PERIOD).semester;
+
+      // 建立去重索引：年度+學期+單位+姓名 → 記錄索引
+      const keyMap = {};
+      records.forEach((r, i) => {
+        const k = `${r.year}|${r.semester}|${r.unit}|${r.name}`;
+        keyMap[k] = i;
+      });
+
       for (let i=1; i<rows.length; i++) {
         const row = rows[i];
         if (!row || !row[3]) { skipped++; continue; }
         const age = parseInt(row[5]);
+        const name = String(row[3]||'').trim();
+        const unit = String(row[2]||'').trim();
+        if (!name) { skipped++; continue; }
+
         const rec = {
-          id: uuid(),
           year: importYear,
           semester: importSemester,
           brigade: String(row[1]||'').trim(),
-          unit: String(row[2]||'').trim(),
-          name: String(row[3]||'').trim(),
+          unit,
+          name,
           gender: String(row[4]||'男').trim(),
           age: isNaN(age) ? null : age,
           ageGroup: getAgeGroup(age),
@@ -1600,13 +1629,23 @@ function importExcel(file) {
           loaded_walk: row[13]!==undefined&&row[13]!==''?parseFloat(row[13]):null,
           run_1500: row[14]!==undefined&&row[14]!==''?parseFloat(row[14]):null,
         };
-        if (!rec.name) { skipped++; continue; }
-        records.push(rec);
-        imported++;
+
+        const k = `${importYear}|${importSemester}|${unit}|${name}`;
+        if (keyMap[k] !== undefined) {
+          // 相同單位+姓名+年度+學期 → 覆蓋，保留原 id
+          rec.id = records[keyMap[k]].id;
+          records[keyMap[k]] = rec;
+          updated++;
+        } else {
+          rec.id = uuid();
+          keyMap[k] = records.length;
+          records.push(rec);
+          imported++;
+        }
       }
       saveData();
       renderRecords();
-      showToast(`匯入完成：${imported} 筆成功，${skipped} 筆略過`, 'success');
+      showToast(`匯入完成：${imported} 筆新增，${updated} 筆更新，${skipped} 筆略過`, 'success');
     } catch(err) {
       showToast('匯入失敗: ' + err.message, 'error');
     }
@@ -1779,8 +1818,11 @@ function init() {
   // Initial render
   renderDashboard();
 
-  // Load from GAS if configured
-  if (GAS_URL) { const {year, semester} = parsePeriod(DEFAULT_PERIOD); loadFromGAS(year, semester); }
+  // 下載範本
+  document.getElementById('btn-template').onclick = downloadTemplate;
+
+  // Load from GAS if configured — 不帶年度，一次載入全部資料
+  if (GAS_URL) { loadFromGAS('', ''); }
 }
 
 document.addEventListener('DOMContentLoaded', init);
