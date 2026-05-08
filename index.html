@@ -420,6 +420,37 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
 }
 
 
+
+/* Admin mode */
+.auth-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border-mid);
+  color: var(--text-muted);
+  background: #fff;
+}
+.auth-badge.admin {
+  border-color: #bbf7d0;
+  color: #047857;
+  background: #f0fdf4;
+}
+.admin-only { display: none !important; }
+body.admin-mode .admin-only { display: inline-flex !important; }
+body.admin-mode .admin-only.table-action { display: table-cell !important; }
+.readonly-note {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
 /* Official system notice */
 .system-note {
   background: linear-gradient(135deg, #fff 0%, #fff7ed 100%);
@@ -521,7 +552,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <i class="ri-dashboard-line"></i> 總覽
       </button>
       <button class="nav-item" data-page="records">
-        <i class="ri-file-list-3-line"></i> 成績管理
+        <i class="ri-file-list-3-line"></i> 成績查詢
       </button>
       <button class="nav-item" data-page="results">
         <i class="ri-trophy-line"></i> 換算結果
@@ -534,7 +565,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <i class="ri-table-line"></i> 換算規則
       </button>
     </nav>
-    <div class="sidebar-footer">消防局常訓體能成績管理系統</div>
+    <div class="sidebar-footer">預設查詢模式｜管理功能需 ADMIN_KEY</div>
   </aside>
   <div class="overlay" id="overlay"></div>
 
@@ -544,6 +575,9 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
       <button class="hamburger" id="hamburgerBtn"><i class="ri-menu-line"></i></button>
       <span class="topbar-title" id="topbarTitle">總覽</span>
       <div class="topbar-spacer"></div>
+      <span class="auth-badge" id="auth-status"><i class="ri-eye-line"></i> 查詢模式</span>
+      <button class="btn btn-white btn-sm" id="btn-admin-login"><i class="ri-key-2-line"></i> 管理者登入</button>
+      <button class="btn btn-danger btn-sm admin-only" id="btn-admin-logout"><i class="ri-logout-box-line"></i> 登出</button>
       <span style="font-size:12px;color:var(--text-muted)">台北市消防局 常訓體能成績</span>
     </header>
     <div class="content">
@@ -608,7 +642,8 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
 
       <!-- Page: Records -->
       <div class="page" id="page-records">
-        <div class="section-title">成績管理</div>
+        <div class="section-title">成績查詢</div>
+        <div class="readonly-note" id="readonly-note"><i class="ri-information-line"></i> 目前為查詢模式：可依年度、單位或姓名查詢成績；新增、匯入、儲存與刪除需管理者登入。</div>
         <div class="filter-bar">
           <span class="label">年度</span>
           <select id="rec-period"></select>
@@ -621,14 +656,15 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           <input type="search" id="rec-search" placeholder="搜尋姓名..." style="width:140px">
         </div>
         <div class="toolbar">
-          <button class="btn btn-red" id="btn-add"><i class="ri-user-add-line"></i> 新增人員</button>
-          <button class="btn btn-white" id="btn-template"><i class="ri-file-download-line"></i> 下載範本</button>
-          <button class="btn btn-white" id="btn-import"><i class="ri-upload-2-line"></i> 匯入Excel</button>
-          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
-          <button class="btn btn-green" id="btn-export-rec"><i class="ri-file-excel-line"></i> 匯出原始資料</button>
           <button class="btn btn-white" id="btn-sync"><i class="ri-download-cloud-2-line"></i> 從 GSheet 載入</button>
-          <button class="btn btn-green" id="btn-save-gsheet"><i class="ri-upload-cloud-2-line"></i> 儲存到 GSheet</button>
-          <button class="btn btn-danger" id="btn-clear"><i class="ri-delete-bin-line"></i> 清除全部</button>
+          <button class="btn btn-red admin-only" id="btn-add"><i class="ri-user-add-line"></i> 新增人員</button>
+          <button class="btn btn-white admin-only" id="btn-template"><i class="ri-file-download-line"></i> 下載範本</button>
+          <button class="btn btn-white admin-only" id="btn-import"><i class="ri-upload-2-line"></i> 匯入Excel</button>
+          <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+          <button class="btn btn-green admin-only" id="btn-export-rec"><i class="ri-file-excel-line"></i> 匯出原始資料</button>
+          <button class="btn btn-green admin-only" id="btn-save-gsheet"><i class="ri-upload-cloud-2-line"></i> 儲存到 GSheet</button>
+          <button class="btn btn-danger admin-only" id="btn-delete-period"><i class="ri-delete-bin-2-line"></i> 刪除此年度資料</button>
+          <button class="btn btn-white admin-only" id="btn-clear"><i class="ri-eraser-line"></i> 清除本機暫存</button>
         </div>
         <div class="table-wrap">
           <div class="table-scroll">
@@ -670,7 +706,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
           </select>
         </div>
         <div class="toolbar">
-          <button class="btn btn-green" id="btn-export"><i class="ri-file-excel-line"></i> 匯出Excel</button>
+          <button class="btn btn-green admin-only" id="btn-export"><i class="ri-file-excel-line"></i> 匯出Excel</button>
         </div>
         <div class="table-wrap">
           <div class="table-scroll">
@@ -1159,7 +1195,7 @@ function downloadTemplate() {
 
 async function saveToGAS(year, semester) {
   if (!GAS_URL) { showToast('尚未設定 GAS URL', 'error'); return; }
-  const adminKey = window.prompt('請輸入管理者金鑰（ADMIN_KEY）');
+  const adminKey = requireAdminKey();
   if (!adminKey) { showToast('已取消儲存到 GSheet', 'info'); return; }
   try {
     showToast('儲存到 GSheet 中…', 'info');
@@ -1182,6 +1218,37 @@ async function saveToGAS(year, semester) {
     if (data.ok) showToast('已儲存 ' + data.saved + ' 筆至 GSheet', 'success');
     else showToast('同步失敗: ' + (data.error||''), 'error');
   } catch(e) { showToast('同步失敗: ' + e.message, 'error'); }
+}
+
+
+async function deletePeriodFromGAS(year, semester) {
+  if (!year || !semester) { showToast('請先選擇要刪除的年度/學期', 'error'); return; }
+  if (!GAS_URL) { showToast('尚未設定 GAS URL', 'error'); return; }
+  const adminKey = requireAdminKey();
+  if (!adminKey) return;
+  const label = year + '年' + semester;
+  showConfirm('刪除年度資料', '確定要刪除 Google Sheet 與本機暫存中的「' + label + '」資料嗎？此操作需要後端 ADMIN_KEY 驗證。', async () => {
+    try {
+      showToast('刪除 ' + label + ' 資料中…', 'info');
+      const body = new URLSearchParams();
+      body.set('action', 'deletePeriod');
+      body.set('year', year || '');
+      body.set('semester', semester || '');
+      body.set('adminKey', adminKey);
+      const resp = await fetch(GAS_URL, { method: 'POST', body });
+      const data = await resp.json();
+      if (data.ok) {
+        records = records.filter(r => !(String(r.year) === String(year) && r.semester === semester));
+        saveData();
+        refreshAll();
+        showToast('已刪除 ' + label + ' 資料' + (data.deleted ? ' ' + data.deleted + ' 筆' : ''), 'success');
+      } else {
+        showToast('刪除失敗: ' + (data.error || '後端尚未支援 deletePeriod'), 'error');
+      }
+    } catch(e) {
+      showToast('刪除失敗: ' + e.message, 'error');
+    }
+  });
 }
 
 // ==================== PERIOD (年度+半年) ====================
@@ -1258,9 +1325,49 @@ function showToast(msg, type='info') {
   setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(30px)'; t.style.transition='all 0.3s'; setTimeout(()=>t.remove(),300); }, 2800);
 }
 
+
+// ==================== ADMIN MODE ====================
+const ADMIN_SESSION_KEY = 'fitness_record_admin_key';
+
+function getAdminKey() {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) || '';
+}
+
+function isAdminMode() {
+  return !!getAdminKey();
+}
+
+function setAdminKey(key) {
+  if (key) sessionStorage.setItem(ADMIN_SESSION_KEY, key);
+  else sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  applyAdminMode();
+}
+
+function requireAdminKey() {
+  let key = getAdminKey();
+  if (!key) {
+    key = window.prompt('請輸入管理者金鑰（ADMIN_KEY）');
+    if (!key) { showToast('已取消管理操作', 'info'); return ''; }
+    setAdminKey(key);
+  }
+  return key;
+}
+
+function applyAdminMode() {
+  const admin = isAdminMode();
+  document.body.classList.toggle('admin-mode', admin);
+  const status = document.getElementById('auth-status');
+  if (status) {
+    status.className = 'auth-badge' + (admin ? ' admin' : '');
+    status.innerHTML = admin ? '<i class="ri-shield-keyhole-line"></i> 管理者模式' : '<i class="ri-eye-line"></i> 查詢模式';
+  }
+  const note = document.getElementById('readonly-note');
+  if (note) note.style.display = admin ? 'none' : '';
+}
+
 // ==================== NAVIGATION ====================
 let currentPage = 'dashboard';
-const PAGE_TITLES = { dashboard:'總覽', records:'成績管理', results:'換算結果', analysis:'統計分析', formula:'換算規則' };
+const PAGE_TITLES = { dashboard:'總覽', records:'成績查詢', results:'換算結果', analysis:'統計分析', formula:'換算規則' };
 
 function navigateTo(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1421,7 +1528,7 @@ function renderRecords() {
 
   tbody.innerHTML = paged.map(r => {
     const id = r.id;
-    const editable = !r.year || parseInt(r.year) >= _rocYear; // 當年及未來可編輯
+    const editable = isAdminMode(); // 管理者登入後才可編輯
     if (!editable) {
       return `<tr style="opacity:0.75">
         <td>${r.brigade||''}</td>
@@ -1437,7 +1544,7 @@ function renderRecords() {
         <td>${r.chin_up_sec??''}</td>
         <td>${r.loaded_walk??''}</td>
         <td>${r.run_1500??''}</td>
-        <td><span style="font-size:11px;color:var(--text-light)">歷史資料</span></td>
+        <td><span style="font-size:11px;color:var(--text-light)">唯讀</span></td>
       </tr>`;
     }
     return `<tr>
@@ -1467,6 +1574,7 @@ function renderRecords() {
 }
 
 function updateField(id, field, value) {
+  if (!requireAdminKey()) return;
   const rec = records.find(r => r.id === id);
   if (!rec) return;
   if (field === 'age') {
@@ -1481,6 +1589,7 @@ function updateField(id, field, value) {
 }
 
 function deleteRecord(id) {
+  if (!requireAdminKey()) return;
   showConfirm('確認刪除', '確定要刪除這筆紀錄嗎？此操作無法復原。', () => {
     records = records.filter(r => r.id !== id);
     saveData();
@@ -1857,6 +1966,7 @@ function renderFormula() {
 let editingId = null;
 
 function openAddModal(id) {
+  if (!requireAdminKey()) return;
   editingId = id || null;
   const modal = document.getElementById('modal-person');
   document.getElementById('modal-title').textContent = id ? '編輯人員' : '新增人員';
@@ -1918,6 +2028,7 @@ function closeAddModal() {
 }
 
 function savePersonModal() {
+  if (!requireAdminKey()) return;
   const name = document.getElementById('f-name').value.trim();
   if (!name) { showToast('請輸入姓名', 'error'); return; }
   const age = parseInt(document.getElementById('f-age').value);
@@ -1969,6 +2080,7 @@ function showConfirm(title, msg, cb) {
 
 // ==================== EXCEL IMPORT ====================
 function importExcel(file) {
+  if (!requireAdminKey()) return;
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -2240,7 +2352,7 @@ function init() {
   // Import Excel
   document.getElementById('btn-import').onclick = () => document.getElementById('file-input').click();
   document.getElementById('file-input').onchange = e => {
-    if (e.target.files[0]) { importExcel(e.target.files[0]); e.target.value=''; }
+    if (e.target.files[0]) { if (requireAdminKey()) importExcel(e.target.files[0]); e.target.value=''; }
   };
 
   // Sync GSheet
@@ -2258,19 +2370,36 @@ function init() {
     } else showToast('尚未設定 GAS_URL', 'error');
   };
 
-  // Clear all
+  // Delete / clear
+  document.getElementById('btn-delete-period').onclick = () => {
+    const {year, semester} = parsePeriod(document.getElementById('rec-period').value);
+    deletePeriodFromGAS(year, semester);
+  };
   document.getElementById('btn-clear').onclick = () => {
-    showConfirm('清除全部', '確定要清除所有資料嗎？此操作無法復原！', () => {
+    if (!requireAdminKey()) return;
+    showConfirm('清除本機暫存', '確定要清除本機瀏覽器暫存資料嗎？此操作不會刪除 Google Sheet。', () => {
       records = [];
       saveData();
-      renderRecords();
-      showToast('已清除全部資料', 'success');
+      refreshAll();
+      showToast('已清除本機暫存', 'success');
     });
   };
 
   // Export Excel
-  document.getElementById('btn-export').onclick = exportExcel;
-  document.getElementById('btn-export-rec').onclick = exportRawRecords;
+  document.getElementById('btn-export').onclick = () => { if (requireAdminKey()) exportExcel(); };
+  document.getElementById('btn-export-rec').onclick = () => { if (requireAdminKey()) exportRawRecords(); };
+
+  // Admin login/logout
+  document.getElementById('btn-admin-login').onclick = () => {
+    const key = window.prompt('請輸入管理者金鑰（ADMIN_KEY）');
+    if (key) { setAdminKey(key); showToast('已切換為管理者模式', 'success'); refreshAll(); }
+  };
+  document.getElementById('btn-admin-logout').onclick = () => {
+    setAdminKey('');
+    showToast('已回到查詢模式', 'success');
+    refreshAll();
+  };
+  applyAdminMode();
 
   // Confirm modal
   document.getElementById('confirm-close').onclick = () => document.getElementById('modal-confirm').classList.remove('show');
