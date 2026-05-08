@@ -419,6 +419,51 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
   .topbar { padding: 0 12px; }
 }
 
+
+/* Official system notice */
+.system-note {
+  background: linear-gradient(135deg, #fff 0%, #fff7ed 100%);
+  border: 1px solid #fed7aa;
+  border-left: 4px solid var(--red);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+}
+.system-note-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+.system-note-title i { color: var(--red); font-size: 18px; }
+.system-note-body {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.system-note-body strong { color: var(--text-dark); }
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.pipeline-item {
+  background: rgba(255,255,255,0.72);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.pipeline-item .k { font-size: 12px; color: var(--text-muted); margin-bottom: 3px; }
+.pipeline-item .v { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+@media (max-width: 700px) {
+  .pipeline-grid { grid-template-columns: 1fr; }
+}
+
 /* Pagination */
 .pagination { display: flex; align-items: center; gap: 6px; padding: 12px 16px; border-top: 1px solid var(--border); justify-content: space-between; }
 .pagination .info { font-size: 12px; color: var(--text-muted); }
@@ -506,6 +551,17 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
       <!-- Page: Dashboard -->
       <div class="page active" id="page-dashboard">
         <div class="section-title">數據總覽</div>
+        <div class="system-note">
+          <div class="system-note-title"><i class="ri-shield-check-line"></i> 系統定位與資料來源</div>
+          <div class="system-note-body">
+            本系統定位為 <strong>常訓體能成績管理與統計後台</strong>，用於承辦彙整、成績換算、趨勢分析與報表輸出；現場安全檢核與當次訓練簽核仍應使用檢核表系統。資料同步以 Google Sheet 為主要來源，網頁端載入時會依年度與學期覆蓋同期間資料，避免重複累加。
+            <div class="pipeline-grid">
+              <div class="pipeline-item"><div class="k">資料來源</div><div class="v">Google Sheet / Excel 匯入</div></div>
+              <div class="pipeline-item"><div class="k">使用角色</div><div class="v">承辦彙整、主管檢視</div></div>
+              <div class="pipeline-item"><div class="k">資料原則</div><div class="v">同期間同步採覆蓋更新</div></div>
+            </div>
+          </div>
+        </div>
         <div class="filter-bar" style="margin-bottom:20px">
           <span class="label">年度</span>
           <select id="dash-period"></select>
@@ -1021,6 +1077,35 @@ function uuid() {
 }
 
 // ==================== GAS ====================
+function normalizeRecordValue(v) {
+  return (v === undefined || v === null) ? '' : String(v).trim();
+}
+
+function recordPeriodKey(r) {
+  return normalizeRecordValue(r.year) + '|' + normalizeRecordValue(r.semester);
+}
+
+function recordIdentityKey(r) {
+  // GSheet 舊資料與新版資料的 id 可能不同；同步時用「同一期、同姓名、同成績」判斷為同一筆。
+  // 不把單位/年齡放進 key，是為了讓已補正中隊/分隊或年齡欄位的新版資料覆蓋舊列。
+  return [
+    r.year, r.semester, r.name, r.gender,
+    r.standing_jump, r.ball_throw, r.shuttle_run, r.deadlift,
+    r.chin_up_count, r.chin_up_sec, r.loaded_walk, r.run_1500
+  ].map(normalizeRecordValue).join('|');
+}
+
+function dedupeRecordsByIdentity(list) {
+  const map = new Map();
+  (list || []).forEach(r => {
+    const key = recordIdentityKey(r);
+    if (!key.replace(/\|/g, '')) return;
+    // 後進資料優先，讓 GSheet 新版欄位覆蓋舊資料。
+    map.set(key, r);
+  });
+  return Array.from(map.values());
+}
+
 async function loadFromGAS(year, semester) {
   if (!GAS_URL) return;
   showToast('從 GSheet 載入中…', 'info');
@@ -1031,13 +1116,20 @@ async function loadFromGAS(year, semester) {
     const resp = await fetch(GAS_URL + '?' + params.toString());
     const data = await resp.json();
     if (data && data.ok && Array.isArray(data.records)) {
-      // 以 id 為 key 合併，GSheet 資料優先
-      const map = {};
-      records.forEach(r => { map[r.id] = r; });
-      data.records.forEach(r => { map[r.id] = r; });
-      records = Object.values(map);
+      const incoming = dedupeRecordsByIdentity(data.records);
+      const incomingPeriods = new Set(incoming.map(recordPeriodKey));
+
+      if (year || semester) {
+        // 手動同步某年度/學期時，同期間資料以 GSheet 為準覆蓋，避免 id 不一致造成筆數倍增。
+        records = records.filter(r => !incomingPeriods.has(recordPeriodKey(r))).concat(incoming);
+      } else {
+        // 首次載入全部資料時，也先去重；Google Sheet 舊/新格式同時存在時不再疊成兩倍。
+        records = incoming;
+      }
+
       saveData();
-      showToast('已從 GSheet 同步 ' + data.records.length + ' 筆', 'success');
+      const skipped = data.records.length - incoming.length;
+      showToast('已從 GSheet 同步 ' + incoming.length + ' 筆' + (skipped > 0 ? '，略過重複 ' + skipped + ' 筆' : ''), 'success');
       refreshAll();
     } else {
       showToast('同步失敗: ' + (data && data.error ? data.error : '回應格式錯誤'), 'error');
@@ -2201,7 +2293,7 @@ function init() {
   // 下載範本
   document.getElementById('btn-template').onclick = downloadTemplate;
 
-  // Load from GAS if configured — 不帶年度，一次載入全部資料
+  // Load from GAS if configured — GSheet 為主要資料來源，載入時會先去重再更新本機快取
   if (GAS_URL) { loadFromGAS('', ''); }
 }
 
