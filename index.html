@@ -488,7 +488,7 @@ tbody td { padding: 8px 12px; color: var(--text-dark); vertical-align: middle; }
         <i class="ri-table-line"></i> 換算規則
       </button>
     </nav>
-    <div class="sidebar-footer">v1.0 · 民國年度管理系統</div>
+    <div class="sidebar-footer">消防局常訓體能成績管理系統</div>
   </aside>
   <div class="overlay" id="overlay"></div>
 
@@ -1219,6 +1219,25 @@ function renderRecords() {
 
   tbody.innerHTML = paged.map(r => {
     const id = r.id;
+    const editable = !r.year || parseInt(r.year) >= _rocYear; // 當年及未來可編輯
+    if (!editable) {
+      return `<tr style="opacity:0.75">
+        <td>${r.brigade||''}</td>
+        <td>${r.unit||''}</td>
+        <td>${r.name||''}</td>
+        <td>${r.gender||''}</td>
+        <td>${r.age||''}</td>
+        <td>${r.standing_jump??''}</td>
+        <td>${r.ball_throw??''}</td>
+        <td>${r.shuttle_run??''}</td>
+        <td>${r.deadlift??''}</td>
+        <td>${r.chin_up_count??''}</td>
+        <td>${r.chin_up_sec??''}</td>
+        <td>${r.loaded_walk??''}</td>
+        <td>${r.run_1500??''}</td>
+        <td><span style="font-size:11px;color:var(--text-light)">歷史資料</span></td>
+      </tr>`;
+    }
     return `<tr>
       <td>${r.brigade||''}</td>
       <td>${r.unit||''}</td>
