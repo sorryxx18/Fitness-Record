@@ -585,17 +585,6 @@ body.admin-mode .admin-only.table-action { display: table-cell !important; }
       <!-- Page: Dashboard -->
       <div class="page active" id="page-dashboard">
         <div class="section-title">數據總覽</div>
-        <div class="system-note">
-          <div class="system-note-title"><i class="ri-shield-check-line"></i> 系統定位與資料來源</div>
-          <div class="system-note-body">
-            本系統定位為 <strong>常訓體能成績管理與統計後台</strong>，用於承辦彙整、成績換算、趨勢分析與報表輸出；現場安全檢核與當次訓練簽核仍應使用檢核表系統。資料同步以 Google Sheet 為主要來源，網頁端載入時會依年度與學期覆蓋同期間資料，避免重複累加。
-            <div class="pipeline-grid">
-              <div class="pipeline-item"><div class="k">資料來源</div><div class="v">Google Sheet / Excel 匯入</div></div>
-              <div class="pipeline-item"><div class="k">使用角色</div><div class="v">承辦彙整、主管檢視</div></div>
-              <div class="pipeline-item"><div class="k">資料原則</div><div class="v">同期間同步採覆蓋更新</div></div>
-            </div>
-          </div>
-        </div>
         <div class="filter-bar" style="margin-bottom:20px">
           <span class="label">年度</span>
           <select id="dash-period"></select>
@@ -643,7 +632,7 @@ body.admin-mode .admin-only.table-action { display: table-cell !important; }
       <!-- Page: Records -->
       <div class="page" id="page-records">
         <div class="section-title">成績查詢</div>
-        <div class="readonly-note" id="readonly-note"><i class="ri-information-line"></i> 目前為查詢模式：可依年度、單位或姓名查詢成績；新增、匯入、儲存與刪除需管理者登入。</div>
+        <div class="readonly-note" id="readonly-note"><i class="ri-information-line"></i> 查詢模式：可依年度、單位或姓名查詢成績。如需新增或修改資料，請以管理者身份登入。</div>
         <div class="filter-bar">
           <span class="label">年度</span>
           <select id="rec-period"></select>
@@ -656,13 +645,13 @@ body.admin-mode .admin-only.table-action { display: table-cell !important; }
           <input type="search" id="rec-search" placeholder="搜尋姓名..." style="width:140px">
         </div>
         <div class="toolbar">
-          <button class="btn btn-white" id="btn-sync"><i class="ri-download-cloud-2-line"></i> 從 GSheet 載入</button>
+          <button class="btn btn-white" id="btn-sync"><i class="ri-refresh-line"></i> 更新資料</button>
           <button class="btn btn-red admin-only" id="btn-add"><i class="ri-user-add-line"></i> 新增人員</button>
           <button class="btn btn-white admin-only" id="btn-template"><i class="ri-file-download-line"></i> 下載範本</button>
           <button class="btn btn-white admin-only" id="btn-import"><i class="ri-upload-2-line"></i> 匯入Excel</button>
           <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
           <button class="btn btn-green admin-only" id="btn-export-rec"><i class="ri-file-excel-line"></i> 匯出原始資料</button>
-          <button class="btn btn-green admin-only" id="btn-save-gsheet"><i class="ri-upload-cloud-2-line"></i> 儲存到 GSheet</button>
+          <button class="btn btn-green admin-only" id="btn-save-gsheet"><i class="ri-upload-cloud-2-line"></i> 儲存資料</button>
           <button class="btn btn-danger admin-only" id="btn-delete-period"><i class="ri-delete-bin-2-line"></i> 刪除此年度資料</button>
           <button class="btn btn-white admin-only" id="btn-clear"><i class="ri-eraser-line"></i> 清除本機暫存</button>
         </div>
@@ -834,7 +823,7 @@ body.admin-mode .admin-only.table-action { display: table-cell !important; }
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group">
-          <label>年度 / 學期</label>
+          <label>年度 / 上下半年</label>
           <select id="f-year"></select>
         </div>
         <div class="form-group">
@@ -1177,7 +1166,7 @@ async function loadFromGAS(year, semester) {
 
 // 下載空白範本
 function downloadTemplate() {
-  const note = ['【說明】匯入前請先在頁面上選好「年度/學期」，匯入的資料會自動套用所選年度。懸吊屈體(次)與(秒)二擇一填入即可。'];
+  const note = ['【說明】匯入前請先在頁面上選好「年度/上下半年」，匯入的資料會自動套用所選年度。懸吊屈體(次)與(秒)二擇一填入即可。'];
   const headers = ['號碼','大隊','單位','姓名','性別','年齡','年齡層',
     '立定跳遠(cm)','後拋擲遠(m)','折返跑(趟)','菱形槓硬舉(公斤)',
     '懸吊屈體(次)','懸吊屈體(秒)','六角槓負重行走(公斤)','1500公尺跑步(秒)'];

@@ -372,10 +372,10 @@ export function App() {
           <section style={{ paddingBottom: 0 }}>
             <div className="toolbar">
               <button onClick={handleLoadGSheet} disabled={loading}>
-                {loading ? '載入中...' : '從 GSheet 載入'}
+                {loading ? '更新中...' : '更新資料'}
               </button>
               {isAdmin && <>
-                <button onClick={handleSaveGSheet} disabled={loading}>儲存到 GSheet</button>
+                <button onClick={handleSaveGSheet} disabled={loading}>儲存資料</button>
                 <button onClick={handleExportRaw}>匯出原始資料</button>
                 <button onClick={handleExportResults}>匯出換算結果</button>
                 <label style={{ border: '1px solid #059669', background: '#059669', color: '#fff', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}>
@@ -392,8 +392,8 @@ export function App() {
         {page === 'dashboard' && (
           <section>
             <div className="note">
-              <b>系統定位</b>
-              <p>常訓體能成績管理與統計後台，用於承辦彙整、成績換算、趨勢分析與報表輸出。</p>
+              <b>台北市消防局 常訓體能成績管理系統</b>
+              <p>可查詢各年度、各單位的體能成績換算結果與統計分析。</p>
             </div>
             <FilterBar period={period} setPeriod={setPeriod} brigade={brigade} setBrigade={setBrigade}
               squad={squad} setSquad={setSquad} onReset={resetPages} />
@@ -409,7 +409,7 @@ export function App() {
         {page === 'records' && (
           <section>
             {!isAdmin && <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '10px 12px', marginBottom: 12, fontSize: 13, color: '#1e3a8a' }}>
-              目前為查詢模式，匯入/儲存功能需管理者登入。
+              查詢模式：可依年度、單位或姓名查詢成績。如需新增或修改資料，請以管理者身份登入。
             </div>}
             <FilterBar period={period} setPeriod={setPeriod} brigade={brigade} setBrigade={setBrigade}
               squad={squad} setSquad={setSquad} unit={unit} setUnit={setUnit}
