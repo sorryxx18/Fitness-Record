@@ -67,11 +67,11 @@ export function dedupeRecordsByIdentity(list) {
 
 export function getAgeGroup(age) {
   const a = Number.parseInt(age, 10);
-  if (Number.isNaN(a)) return '';
-  if (a < 30) return '未滿30';
+  if (Number.isNaN(a)) return '20-29';
+  if (a < 30) return '20-29';
   if (a < 40) return '30-39';
   if (a < 50) return '40-49';
-  return '50以上';
+  return '50+';
 }
 
 export function calcScore(gender, ageGroup, item, value) {
@@ -114,7 +114,7 @@ export async function loadFromGAS({ year, semester }, currentRecords = []) {
   if (semester) params.set('semester', semester);
   const resp = await fetch(GAS_URL + '?' + params.toString());
   const data = await resp.json();
-  if (!data?.success || !Array.isArray(data.records)) throw new Error(data?.message || 'GSheet 載入失敗');
+  if (!data?.ok || !Array.isArray(data.records)) throw new Error(data?.error || 'GSheet 載入失敗');
   const incoming = dedupeRecordsByIdentity(data.records);
   const incomingPeriods = new Set(incoming.map(recordPeriodKey));
   const retained = currentRecords.filter(r => !incomingPeriods.has(recordPeriodKey(r)));
