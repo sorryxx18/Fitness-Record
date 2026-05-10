@@ -382,8 +382,8 @@ function TrainingPage({ isAdmin, adminKey }) {
     setEditTarget(null);
     try {
       await gasPost({ action: 'trainingSave', adminKey, record: JSON.stringify(rec) });
-      showMsg(idx >= 0 ? '已更新並同步 GSheet' : '已新增並同步 GSheet');
-    } catch { showMsg('本地已儲存（GSheet 同步失敗）'); }
+      showMsg(idx >= 0 ? '已更新' : '已新增');
+    } catch { showMsg('儲存失敗，請稍後再試'); }
   }
 
   async function handleDelete(id) {
@@ -392,8 +392,8 @@ function TrainingPage({ isAdmin, adminKey }) {
     setViewRecord(null);
     try {
       await gasPost({ action: 'trainingDelete', adminKey, id });
-      showMsg('已刪除並同步 GSheet');
-    } catch { showMsg('本地已刪除（GSheet 同步失敗）'); }
+      showMsg('已刪除');
+    } catch { showMsg('刪除失敗，請稍後再試'); }
   }
 
   function handleImport(file) {
@@ -438,7 +438,7 @@ function TrainingPage({ isAdmin, adminKey }) {
     <section>
       {/* 工具列 */}
       <div className="toolbar" style={{ marginBottom:12 }}>
-        <button style={btnS('#475569')} onClick={handleLoad} disabled={loading}>{loading ? '載入中…' : '從 GSheet 載入'}</button>
+        <button style={btnS('#475569')} onClick={handleLoad} disabled={loading}>{loading ? '載入中…' : '更新資料'}</button>
         {isAdmin && <>
           <button style={btnS('#2563eb')} onClick={() => setEditTarget({})}>新增紀錄</button>
           <label style={btnS('#059669')}>
@@ -496,7 +496,7 @@ function TrainingPage({ isAdmin, adminKey }) {
           </tbody>
         </table>
       </div>
-      {!filtered.length && <div style={{ padding:32, textAlign:'center', color:'var(--muted)' }}>沒有符合條件的資料{records.length === 0 ? '，請先點「從 GSheet 載入」' : ''}</div>}
+      {!filtered.length && <div style={{ padding:32, textAlign:'center', color:'var(--muted)' }}>沒有符合條件的資料{records.length === 0 ? '，請先點「更新資料」' : ''}</div>}
       <Pagination page={page} total={filtered.length} onPage={setPage} />
 
       {/* 詳情 Modal */}
@@ -924,12 +924,12 @@ export function App() {
     if (adminKey) {
       try {
         await gasPost({ action: 'upsert', adminKey, record: JSON.stringify(rec) });
-        showMsg(idx >= 0 ? '已更新並同步 GSheet' : '已新增並同步 GSheet');
+        showMsg(idx >= 0 ? '已更新' : '已新增');
       } catch {
-        showMsg((idx >= 0 ? '已更新' : '已新增') + '（GSheet 同步失敗）');
+        showMsg('儲存失敗，請稍後再試');
       }
     } else {
-      showMsg(idx >= 0 ? '已更新紀錄' : '已新增紀錄');
+      showMsg(idx >= 0 ? '已更新' : '已新增');
     }
   }
   async function handleModalDelete(id) {
@@ -939,12 +939,12 @@ export function App() {
     if (adminKey && rec) {
       try {
         await gasPost({ action: 'delete', adminKey, id, year: rec.year });
-        showMsg('已刪除並同步 GSheet');
+        showMsg('已刪除');
       } catch {
-        showMsg('本地已刪除（GSheet 同步失敗）');
+        showMsg('刪除失敗，請稍後再試');
       }
     } else {
-      showMsg('已刪除紀錄');
+      showMsg('已刪除');
     }
   }
 
