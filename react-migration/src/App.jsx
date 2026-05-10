@@ -377,6 +377,8 @@ export function App() {
             stats={stats}
             radarData={radarData}
             brigadeCompare={brigadeCompare}
+            trendData={trendData}
+            trainingRecords={trainingRecordsForExport}
           />
         )}
 
