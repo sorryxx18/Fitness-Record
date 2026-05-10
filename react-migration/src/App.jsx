@@ -1269,6 +1269,16 @@ export function App() {
 
       </main>
 
+      {/* 手機底部導覽列 */}
+      <nav className="mobile-nav">
+        {pages.map(p => (
+          <button key={p.id} className={page === p.id ? 'active' : ''} onClick={() => setPage(p.id)}>
+            <i className={p.icon}></i>
+            <span>{p.label}</span>
+          </button>
+        ))}
+      </nav>
+
       {editTarget !== null && (
         <RecordModal
           record={Object.keys(editTarget).length ? editTarget : null}
