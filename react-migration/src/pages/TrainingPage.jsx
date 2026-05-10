@@ -176,6 +176,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
   const [viewRecord, setViewRecord] = useState(null);
   const [lightbox, setLightbox] = useState(null);
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'wall'
 
   const allPeriods = useMemo(() => [...new Set(records.map(r => r.period))].sort().reverse(), [records]);
 
@@ -187,6 +188,17 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
   }), [records, levelFilter, unitFilter, periodFilter]);
 
   const paged = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+
+  // 成果牆：從篩選後的紀錄中收集所有照片
+  const allPhotos = useMemo(() => {
+    const result = [];
+    filtered.forEach(r => {
+      (r.photo_files || []).forEach(photo => {
+        result.push({ photo, unit: r.unit, period: r.period, level: r.level, content: r.content, recordId: r.id });
+      });
+    });
+    return result;
+  }, [filtered]);
 
   function showMsg(text) { setMsg(text); setTimeout(() => setMsg(''), 4000); }
 
@@ -233,30 +245,40 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
     } catch { showMsg('刪除失敗，請稍後再試'); }
   }
 
+  function handleDownloadTemplate() {
+    const headers = ['訓練層級', '填報單位', '年度期別', '訓練日期', '課程內容', '參與人次'];
+    const example = ['大隊常訓', '第一大隊', '114年上半年', '114年3月24、25日', '搜救技術訓練、體能強化', 50];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 24 }, { wch: 36 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, ws, '常訓紀錄');
+    XLSX.writeFile(wb, '常訓紀錄匯入範本.xlsx');
+  }
+
   function handleImport(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const wb = XLSX.read(e.target.result, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
+        const ws = wb.Sheets['常訓紀錄'] || wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
         let added = 0, skipped = 0;
         const next = [...records];
         const existing = new Set(records.map(r => `${r.unit}|${r.period}|${r.content}`));
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
-          if (!row || !row[5]) { skipped++; continue; }
-          const key = `${String(row[2]||'').trim()}|${String(row[3]||'').trim()}|${String(row[5]||'').trim()}`;
+          if (!row || !row[4]) { skipped++; continue; }
+          const key = `${String(row[1]||'').trim()}|${String(row[2]||'').trim()}|${String(row[4]||'').trim()}`;
           if (existing.has(key)) { skipped++; continue; }
           next.push({
             id: crypto.randomUUID(),
-            level: String(row[1]||'').trim(),
-            unit: String(row[2]||'').trim(),
-            period: String(row[3]||'').trim(),
-            date: String(row[4]||'').trim(),
-            content: String(row[5]||'').trim(),
-            participants: row[6] !== undefined && row[6] !== '' ? parseInt(row[6]) : null,
+            level: String(row[0]||'').trim(),
+            unit: String(row[1]||'').trim(),
+            period: String(row[2]||'').trim(),
+            date: String(row[3]||'').trim(),
+            content: String(row[4]||'').trim(),
+            participants: row[5] !== undefined && row[5] !== '' ? parseInt(row[5]) : null,
             plan_files: [], photo_files: [],
           });
           existing.add(key); added++;
@@ -279,17 +301,30 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
       </div>
 
       {/* 工具列 */}
-      <div className="toolbar" style={{ marginBottom:12 }}>
+      <div className="toolbar" style={{ marginBottom:12, flexWrap:'wrap', gap:8 }}>
         <button style={btnS('#475569')} onClick={handleLoad} disabled={loading}>{loading ? '載入中…' : '更新資料'}</button>
         <button style={btnS('#2563eb')} onClick={() => setEditTarget({})}>新增紀錄</button>
-        {isAdmin && (
-          <label style={btnS('#059669')}>
-            匯入 Excel
-            <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
-              onChange={e => { handleImport(e.target.files[0]); e.target.value=''; }} />
-          </label>
-        )}
+        <button style={outS('#059669')} onClick={handleDownloadTemplate}>
+          <i className="ri-download-line" style={{ marginRight:4 }}></i>範本下載
+        </button>
+        <label style={btnS('#059669')} title="依範本格式批次匯入常訓紀錄">
+          <i className="ri-upload-line" style={{ marginRight:4 }}></i>匯入 Excel
+          <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
+            onChange={e => { handleImport(e.target.files[0]); e.target.value=''; }} />
+        </label>
         {msg && <span style={{ fontSize:13, color:'var(--muted)' }}>{msg}</span>}
+        <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
+          <button
+            style={viewMode==='list' ? btnS('#475569') : outS()}
+            onClick={() => setViewMode('list')}
+            title="列表檢視"
+          ><i className="ri-list-unordered"></i></button>
+          <button
+            style={viewMode==='wall' ? btnS('#475569') : outS()}
+            onClick={() => setViewMode('wall')}
+            title="成果牆"
+          ><i className="ri-image-2-line"></i></button>
+        </div>
       </div>
 
       {/* 篩選 */}
@@ -308,38 +343,77 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
         </select>
       </div>
 
-      {/* 表格 */}
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>層級</th><th>單位</th><th>年度期別</th><th>訓練日期</th><th>課程內容</th><th>人次</th><th>附件</th><th></th></tr></thead>
-          <tbody>
-            {paged.map(r => (
-              <tr key={r.id}>
-                <td><span style={{ fontSize:12, background: r.level==='大隊常訓'?'#fee2e2':'#dbeafe', color: r.level==='大隊常訓'?'#dc2626':'#2563eb', borderRadius:4, padding:'2px 6px' }}>{r.level}</span></td>
-                <td>{r.unit}</td>
-                <td>{r.period}</td>
-                <td style={{ fontSize:12, color:'#64748b', maxWidth:120, wordBreak:'break-all' }}>{r.date}</td>
-                <td style={{ maxWidth:240 }}><span style={{ display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{r.content}</span></td>
-                <td style={{ textAlign:'right' }}>{r.participants ?? '—'}</td>
-                <td>
-                  {(r.plan_files?.length > 0 || r.photo_files?.length > 0) && (
-                    <span style={{ fontSize:12, color:'#059669' }}>
-                      {r.plan_files?.length > 0 && <span title="計畫文件"><i className="ri-file-text-line"></i>{r.plan_files.length} </span>}
-                      {r.photo_files?.length > 0 && <span title="照片"><i className="ri-image-line"></i>{r.photo_files.length}</span>}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <button onClick={() => setViewRecord(r)} style={{ ...outS('#2563eb'), padding:'3px 8px', fontSize:12, marginRight:4 }}>詳情</button>
-                  <button onClick={() => setEditTarget(r)} style={{ ...outS(), padding:'3px 8px', fontSize:12 }}>編輯</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!filtered.length && <div style={{ padding:32, textAlign:'center', color:'var(--muted)' }}>沒有符合條件的資料{records.length === 0 ? '，請先點「更新資料」' : ''}</div>}
-      <Pagination page={page} total={filtered.length} onPage={setPage} />
+      {/* ── 列表模式 ─── */}
+      {viewMode === 'list' && <>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>層級</th><th>單位</th><th>年度期別</th><th>訓練日期</th><th>課程內容</th><th>人次</th><th>附件</th><th></th></tr></thead>
+            <tbody>
+              {paged.map(r => (
+                <tr key={r.id}>
+                  <td><span style={{ fontSize:12, background: r.level==='大隊常訓'?'#fee2e2':'#dbeafe', color: r.level==='大隊常訓'?'#dc2626':'#2563eb', borderRadius:4, padding:'2px 6px' }}>{r.level}</span></td>
+                  <td>{r.unit}</td>
+                  <td>{r.period}</td>
+                  <td style={{ fontSize:12, color:'#64748b', maxWidth:120, wordBreak:'break-all' }}>{r.date}</td>
+                  <td style={{ maxWidth:240 }}><span style={{ display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{r.content}</span></td>
+                  <td style={{ textAlign:'right' }}>{r.participants ?? '—'}</td>
+                  <td>
+                    {(r.plan_files?.length > 0 || r.photo_files?.length > 0) && (
+                      <span style={{ fontSize:12, color:'#059669' }}>
+                        {r.plan_files?.length > 0 && <span title="計畫文件"><i className="ri-file-text-line"></i>{r.plan_files.length} </span>}
+                        {r.photo_files?.length > 0 && <span title="照片"><i className="ri-image-line"></i>{r.photo_files.length}</span>}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <button onClick={() => setViewRecord(r)} style={{ ...outS('#2563eb'), padding:'3px 8px', fontSize:12, marginRight:4 }}>詳情</button>
+                    <button onClick={() => setEditTarget(r)} style={{ ...outS(), padding:'3px 8px', fontSize:12 }}>編輯</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!filtered.length && <div style={{ padding:32, textAlign:'center', color:'var(--muted)' }}>沒有符合條件的資料{records.length === 0 ? '，請先點「更新資料」' : ''}</div>}
+        <Pagination page={page} total={filtered.length} onPage={setPage} />
+      </>}
+
+      {/* ── 成果牆模式 ─── */}
+      {viewMode === 'wall' && (
+        <div>
+          {allPhotos.length === 0 ? (
+            <div style={{ padding:64, textAlign:'center', color:'var(--muted)', fontSize:14 }}>
+              <i className="ri-image-2-line" style={{ fontSize:40, display:'block', marginBottom:12, opacity:0.3 }}></i>
+              {records.length === 0 ? '請先點「更新資料」載入紀錄' : '目前篩選範圍內沒有訓練照片'}
+            </div>
+          ) : (
+            <>
+              <p style={{ fontSize:12, color:'var(--muted)', marginBottom:12 }}>共 {allPhotos.length} 張照片</p>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:10 }}>
+                {allPhotos.map((item, idx) => (
+                  <div key={idx}
+                    style={{ position:'relative', aspectRatio:'1', borderRadius:8, overflow:'hidden', cursor:'zoom-in', boxShadow:'0 2px 8px rgba(0,0,0,0.12)' }}
+                    onClick={() => setLightbox({ ...item.photo, _unit: item.unit, _period: item.period, _content: item.content })}
+                  >
+                    <img
+                      src={item.photo.thumbUrl}
+                      alt={item.photo.name}
+                      style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
+                    />
+                    <div style={{ position:'absolute', bottom:0, left:0, right:0, background:'linear-gradient(transparent, rgba(0,0,0,0.72))', padding:'20px 8px 8px' }}>
+                      <div style={{ color:'#fff', fontSize:12, fontWeight:600, lineHeight:1.3 }}>{item.unit}</div>
+                      <div style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>{item.period}</div>
+                    </div>
+                    <div style={{ position:'absolute', top:6, left:6 }}>
+                      <span style={{ fontSize:10, background: item.level==='大隊常訓'?'rgba(220,38,38,0.85)':'rgba(37,99,235,0.85)', color:'#fff', borderRadius:3, padding:'2px 5px' }}>{item.level}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 詳情 Modal */}
       {viewRecord && (
@@ -406,7 +480,13 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.88)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, cursor:'zoom-out' }}>
           <img src={lightbox.thumbUrl?.replace('w400','w1600') || lightbox.viewUrl} alt={lightbox.name}
-            style={{ maxWidth:'92vw', maxHeight:'92vh', borderRadius:8 }} onClick={e => e.stopPropagation()} />
+            style={{ maxWidth:'92vw', maxHeight:'85vh', borderRadius:8 }} onClick={e => e.stopPropagation()} />
+          {(lightbox._unit || lightbox._period) && (
+            <div style={{ position:'absolute', top:20, left:24, color:'#fff', textShadow:'0 1px 4px rgba(0,0,0,0.8)' }}>
+              <div style={{ fontWeight:700, fontSize:15 }}>{lightbox._unit}</div>
+              <div style={{ fontSize:13, opacity:0.85 }}>{lightbox._period}</div>
+            </div>
+          )}
           <a href={lightbox.downloadUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
             style={{ position:'absolute', bottom:24, right:24, background:'rgba(255,255,255,0.15)', color:'#fff', borderRadius:6, padding:'8px 16px', textDecoration:'none', fontSize:13 }}>下載</a>
         </div>
@@ -414,4 +494,3 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
     </section>
   );
 }
-
