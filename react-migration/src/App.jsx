@@ -376,22 +376,29 @@ function TrainingPage({ isAdmin, adminKey }) {
   }
 
   async function handleSave(rec) {
+    const isNew = !records.find(r => r.id === rec.id);
+    if (isNew) {
+      const dup = records.find(r => r.unit === rec.unit && r.period === rec.period);
+      if (dup && !window.confirm(`本單位（${rec.unit}）${rec.period} 已有填報紀錄，確定新增一筆？`)) return;
+    }
     const idx = records.findIndex(r => r.id === rec.id);
     const next = idx >= 0 ? records.map(r => r.id === rec.id ? rec : r) : [...records, rec];
     setRecords(next);
     setEditTarget(null);
     try {
-      await gasPost({ action: 'trainingSave', adminKey, record: JSON.stringify(rec) });
+      await gasPost({ action: 'trainingSave', record: JSON.stringify(rec) });
       showMsg(idx >= 0 ? '已更新' : '已新增');
     } catch { showMsg('儲存失敗，請稍後再試'); }
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('確定刪除此筆紀錄？')) return;
-    setRecords(records.filter(r => r.id !== id));
+    const code = window.prompt('請輸入確認碼以刪除此筆（輸入：確認刪除）');
+    if (code === null) return;
+    if (code !== '確認刪除') { showMsg('確認碼不正確，取消刪除'); return; }
+    setRecords(prev => prev.filter(r => r.id !== id));
     setViewRecord(null);
     try {
-      await gasPost({ action: 'trainingDelete', adminKey, id });
+      await gasPost({ action: 'trainingDelete', id });
       showMsg('已刪除');
     } catch { showMsg('刪除失敗，請稍後再試'); }
   }
@@ -436,17 +443,22 @@ function TrainingPage({ isAdmin, adminKey }) {
 
   return (
     <section>
+      {/* 填報說明 */}
+      <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:13, color:'#1e3a8a', lineHeight:1.6 }}>
+        <b>填報說明：</b>本頁開放各單位自行填報。同單位同期別如有多筆，以最新填報為主。刪除須輸入確認碼，如有疑問請聯繫管理者。
+      </div>
+
       {/* 工具列 */}
       <div className="toolbar" style={{ marginBottom:12 }}>
         <button style={btnS('#475569')} onClick={handleLoad} disabled={loading}>{loading ? '載入中…' : '更新資料'}</button>
-        {isAdmin && <>
-          <button style={btnS('#2563eb')} onClick={() => setEditTarget({})}>新增紀錄</button>
+        <button style={btnS('#2563eb')} onClick={() => setEditTarget({})}>新增紀錄</button>
+        {isAdmin && (
           <label style={btnS('#059669')}>
             匯入 Excel
             <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
               onChange={e => { handleImport(e.target.files[0]); e.target.value=''; }} />
           </label>
-        </>}
+        )}
         {msg && <span style={{ fontSize:13, color:'var(--muted)' }}>{msg}</span>}
       </div>
 
@@ -489,7 +501,7 @@ function TrainingPage({ isAdmin, adminKey }) {
                 </td>
                 <td>
                   <button onClick={() => setViewRecord(r)} style={{ ...outS('#2563eb'), padding:'3px 8px', fontSize:12, marginRight:4 }}>詳情</button>
-                  {isAdmin && <button onClick={() => setEditTarget(r)} style={{ ...outS(), padding:'3px 8px', fontSize:12 }}>編輯</button>}
+                  <button onClick={() => setEditTarget(r)} style={{ ...outS(), padding:'3px 8px', fontSize:12 }}>編輯</button>
                 </td>
               </tr>
             ))}
@@ -542,12 +554,10 @@ function TrainingPage({ isAdmin, adminKey }) {
               </div>
             )}
 
-            {isAdmin && (
-              <div style={{ display:'flex', justifyContent:'space-between', marginTop:20 }}>
-                <button onClick={() => handleDelete(viewRecord.id)} style={{ border:'1px solid #dc2626', background:'#fff', color:'#dc2626', borderRadius:6, padding:'8px 12px', cursor:'pointer', fontSize:13 }}>刪除此筆</button>
-                <button onClick={() => { setViewRecord(null); setEditTarget(viewRecord); }} style={{ border:'none', background:'#dc2626', color:'#fff', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>編輯</button>
-              </div>
-            )}
+            <div style={{ display:'flex', justifyContent:'space-between', marginTop:20 }}>
+              <button onClick={() => handleDelete(viewRecord.id)} style={{ border:'1px solid #dc2626', background:'#fff', color:'#dc2626', borderRadius:6, padding:'8px 12px', cursor:'pointer', fontSize:13 }}>刪除此筆</button>
+              <button onClick={() => { setViewRecord(null); setEditTarget(viewRecord); }} style={{ border:'none', background:'#dc2626', color:'#fff', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>編輯</button>
+            </div>
           </div>
         </div>
       )}
