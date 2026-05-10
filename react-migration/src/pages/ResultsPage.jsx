@@ -1,0 +1,32 @@
+import { calcRecord, getSquadForUnit } from '../lib/fitnessCore.js';
+import { SCORE_COLS } from '../constants/appConstants.js';
+import { FilterBar } from '../components/FilterBar.jsx';
+import { Pagination } from '../components/Pagination.jsx';
+import { PassBadge, ScoreBadge } from '../components/badges.jsx';
+
+export function ResultsPage({ period, setPeriod, brigade, setBrigade, squad, setSquad, resetPages, pagedRes, filtered, resPage, setResPage }) {
+  return (
+    <section>
+      <FilterBar period={period} setPeriod={setPeriod} brigade={brigade} setBrigade={setBrigade}
+        squad={squad} setSquad={setSquad} onReset={resetPages} />
+      <div className="table-wrap" style={{ marginTop: 12 }}>
+        <table>
+          <thead><tr><th>大隊</th><th>中隊</th><th>分隊</th><th>姓名</th><th>性別</th><th>年齡層</th>{SCORE_COLS.map(c => <th key={c.key}>{c.label}</th>)}<th>總分</th><th>狀態</th></tr></thead>
+          <tbody>
+            {pagedRes.map(r => { const s = calcRecord(r); return (
+              <tr key={r.id} style={!s.pass ? { background: '#fff5f5' } : {}}>
+                <td>{r.brigade}</td><td>{r.squad || getSquadForUnit(r.unit)}</td><td>{r.unit}</td>
+                <td><b>{r.name}</b></td><td>{r.gender}</td><td>{r.ageGroup}</td>
+                {SCORE_COLS.map(c => <td key={c.key}><ScoreBadge value={s[c.key] ?? 0} /></td>)}
+                <td><b style={{ color: s.pass ? '#059669' : '#dc2626' }}>{s.total}</b></td>
+                <td><PassBadge pass={s.pass} /></td>
+              </tr>
+            ); })}
+          </tbody>
+        </table>
+      </div>
+      {!filtered.length && <div className="empty" style={{ padding: 32, textAlign: 'center' }}>沒有符合條件的資料</div>}
+      <Pagination page={resPage} total={filtered.length} onPage={setResPage} />
+    </section>
+  );
+}

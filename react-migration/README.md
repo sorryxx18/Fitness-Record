@@ -1,41 +1,48 @@
 # Fitness-Record React Migration
 
-這是 `sorryxx18/Fitness-Record` 的 React/Vite 平移重構起點。
+`sorryxx18/Fitness-Record` 目前採用 React/Vite 前端，透過 GitHub Actions build 後部署到 `gh-pages`，公開入口為 GitHub Pages。
 
-## 目前狀態
-
-- 保留舊版 `index.html` 當穩定版，不直接覆蓋。
-- 建立 Vite + React 架構。
-- 第一階段先讓新架構可獨立啟動，後續再逐步搬完整功能。
-
-## 已建立的架構方向
+## 目前架構
 
 ```txt
 react-migration/
   package.json
-  index.html
   vite.config.js
   src/
-    main.jsx
-    App.jsx
-    styles.css
+    App.jsx                 # App shell、全域狀態、共用工具列與資料聚合
+    constants/              # 導覽、分頁、期別、成績欄位等常數
+    hooks/                  # localStorage 與 Chart.js hook
+    services/               # GAS API client
+    components/             # badges、filter、chart、modal、匯出元件
+    pages/                  # dashboard / records / results / analysis / training 頁面
     lib/
-      fitnessCore.js
+      fitnessCore.js        # 成績換算、單位對照、GAS 載入核心
+      legacyTables.js       # 舊版 UNIT_MAP / CONV_TABLE
 ```
 
-## 下一步搬遷順序
+## 資料來源
 
-1. 從舊版 `index.html` 搬完整 `UNIT_MAP`。
-2. 從舊版 `index.html` 搬完整 `CONV_TABLE`。
-3. 對齊 `calcRecord()` 結果，確認同一筆資料新舊版總分一致。
-4. 搬成績查詢頁的新增、編輯、刪除。
-5. 搬 Excel 匯入匯出與 GSheet 儲存。
-6. 搬換算結果、統計分析與 Chart.js 圖表。
-7. `npm run build` 通過後，再決定是否切 GitHub Pages 入口。
+- Google Sheet / GAS 是線上資料來源。
+- 前端保留 `localStorage` 作為目前互動快取與匯入暫存，不應被視為權威資料庫。
+- 既有 GAS action 名稱維持不變，避免前端重構時牽動後端部署。
 
-## 重要原則
+## 開發指令
 
-- 第一階段只做平移重構，不重新設計資料語意。
-- 不改 GAS 後端 action 名稱。
-- 舊版 `index.html` 先保留當穩定版。
-- GitHub Pages base 固定為 `/Fitness-Record/`。
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+## 部署
+
+- push 到 `main` 且變更 `react-migration/**` 或 workflow 時，GitHub Actions 會執行 build。
+- build 成果由 `peaceiris/actions-gh-pages` 發佈到 `gh-pages`。
+- Vite base 固定為 `/Fitness-Record/`。
+
+## 重構原則
+
+- App shell 只保留跨頁狀態、共用工具列、GAS 載入/儲存、Excel 匯入等全域流程。
+- 頁面 UI 放在 `src/pages/`。
+- 可重用元件放在 `src/components/`。
+- API 呼叫集中在 `src/services/`，避免頁面直接散落 fetch 細節。
