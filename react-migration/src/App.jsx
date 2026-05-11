@@ -139,6 +139,7 @@ export function App() {
 
   async function handleModalSave(rec) {
     const idx = records.findIndex(r => r.id === rec.id);
+    if (idx < 0 && String(rec.year) === '114') { showMsg('114年資料已封存，只開放建立 115年上半年 資料'); return; }
     const next = idx >= 0 ? records.map(r => r.id === rec.id ? rec : r) : [...records, rec];
     setRecords(next);
     resetPages();
@@ -156,6 +157,7 @@ export function App() {
   }
   async function handleModalDelete(id) {
     const rec = records.find(r => r.id === id);
+    if (rec && String(rec.year) === '114') { showMsg('114年資料已封存，無法刪除'); return; }
     setRecords(records.filter(r => r.id !== id));
     setEditTarget(null);
     if (adminKey && rec) {
@@ -229,6 +231,7 @@ export function App() {
   async function handleDeletePeriod() {
     if (!adminKey) return;
     if (!year || !semester) { showMsg('請先選擇年度'); return; }
+    if (year === '114') { showMsg('114年資料已封存，無法刪除整年度資料'); return; }
     const label = `${year}年${semester}`;
     if (!window.confirm(`確定要刪除「${label}」的所有資料嗎？此操作無法復原。`)) return;
     setLoading(true);
