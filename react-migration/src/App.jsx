@@ -367,18 +367,11 @@ export function App() {
         {/* Dashboard */}
         {page === 'dashboard' && (
           <DashboardPage
-            period={period}
-            setPeriod={setPeriod}
             brigade={brigade}
             setBrigade={setBrigade}
-            squad={squad}
-            setSquad={setSquad}
-            resetPages={resetPages}
-            stats={stats}
-            radarData={radarData}
-            brigadeCompare={brigadeCompare}
             trendData={trendData}
             trainingRecords={trainingRecordsForExport}
+            records={records}
           />
         )}
 
