@@ -16,7 +16,7 @@ const THIN_BORDER = { top:{style:'thin',color:{argb:'FFE2E8F0'}}, left:{style:'t
 async function exportFitnessExcel({ records, period, mode, passFilter }) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = '台北市消防局常訓體能成績管理系統';
+  wb.creator = '臺北市消防局常訓體能成績管理系統';
   wb.created = new Date();
 
   const sheets = mode === 'both'
@@ -32,7 +32,7 @@ async function exportFitnessExcel({ records, period, mode, passFilter }) {
     const colCount = calc ? 14 : 17;
     ws.mergeCells(1, 1, 1, colCount);
     const titleCell = ws.getCell('A1');
-    titleCell.value = `台北市消防局 常訓體能成績 ─ ${period}`;
+    titleCell.value = `臺北市消防局 常訓體能成績 ─ ${period}`;
     titleCell.fill = TITLE_FILL; titleCell.font = TITLE_FONT;
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = 30;
@@ -86,14 +86,14 @@ async function exportFitnessExcel({ records, period, mode, passFilter }) {
 async function exportTrainingExcel({ records, filterLabel }) {
   const ExcelJS = (await import('exceljs')).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = '台北市消防局常訓體能成績管理系統';
+  wb.creator = '臺北市消防局常訓體能成績管理系統';
 
   const ws = wb.addWorksheet('常訓紀錄', { views: [{ state: 'frozen', ySplit: 3 }] });
   const COL = 7;
 
   ws.mergeCells(1, 1, 1, COL);
   const titleCell = ws.getCell('A1');
-  titleCell.value = `台北市消防局 常訓紀錄${filterLabel ? ' ─ ' + filterLabel : ''}`;
+  titleCell.value = `臺北市消防局 常訓紀錄${filterLabel ? ' ─ ' + filterLabel : ''}`;
   titleCell.fill = TITLE_FILL; titleCell.font = TITLE_FONT;
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   ws.getRow(1).height = 30;
