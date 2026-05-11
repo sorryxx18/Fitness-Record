@@ -341,7 +341,7 @@ export function App() {
   return (
     <div className="app">
       <aside className={sidebarOpen ? "sidebar open" : "sidebar"}>
-        <div className="logo"><b>台北消防局</b><span>常訓體能成績管理系統</span></div>
+        <div className="logo"><b>臺北消防局</b><span>常訓體能成績管理系統</span><small style={{display:"block",fontSize:11,color:"#94a3b8",marginTop:4,lineHeight:1.4}}>統整各單位常訓體能成績，支援跨年度查詢與報表輸出。</small></div>
         {pages.map(p => (
           <button key={p.id} className={page === p.id ? 'active' : ''} onClick={() => { setPage(p.id); setSidebarOpen(false); }}>
             <i className={p.icon}></i>{p.label}
