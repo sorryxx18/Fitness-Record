@@ -78,7 +78,7 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
         <div className="hero-card">
           <h2>常訓體能成績總覽</h2>
           <p>
-            快速掌握跨期趨勢、最新期別合格率與各單位狀態。以清楚、穩重、易讀的後台介面呈現查詢、統計與報表輸出，協助承辦快速完成常訓資料檢核。
+            統整各單位常訓體能成績，支援跨年度查詢與報表輸出。
           </p>
         </div>
         <div className="hero-side">
