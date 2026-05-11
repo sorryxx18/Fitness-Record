@@ -29,7 +29,9 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
   const [content, setContent] = useState(record?.content || '');
   const [participants, setParticipants] = useState(record?.participants ?? '');
   const [planFiles, setPlanFiles] = useState(record?.plan_files || []);
+  const [signFiles, setSignFiles] = useState(record?.sign_files || []);
   const [photoFiles, setPhotoFiles] = useState(record?.photo_files || []);
+  const isLocked = !!(record?.period && record.period.startsWith('114年'));
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
   const [lightbox, setLightbox] = useState(null);
@@ -47,6 +49,7 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
       });
       if (!data.ok) throw new Error(data.error);
       if (fileType === 'plan') setPlanFiles(f => [...f, data]);
+      else if (fileType === 'sign') setSignFiles(f => [...f, data]);
       else setPhotoFiles(f => [...f, data]);
       setUploadMsg('上傳成功');
     } catch(e) { setUploadMsg('上傳失敗：' + e.message); }
@@ -57,17 +60,24 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
     if (!window.confirm('確定刪除此檔案？')) return;
     try { await gasPost({ action: 'deleteFile', adminKey, fileId }); } catch(e) {}
     if (fileType === 'plan') setPlanFiles(f => f.filter(x => x.fileId !== fileId));
+    else if (fileType === 'sign') setSignFiles(f => f.filter(x => x.fileId !== fileId));
     else setPhotoFiles(f => f.filter(x => x.fileId !== fileId));
   }
 
   function handleSubmit() {
-    if (!periodVal.trim()) { alert('請填寫年度期別'); return; }
-    if (!content.trim()) { alert('請填寫課程內容'); return; }
+    if (!isLocked) {
+      if (!periodVal.trim()) { alert('請填寫年度期別'); return; }
+      if (!content.trim()) { alert('請填寫課程內容'); return; }
+    }
     onSave({
+      ...(record || {}),
       id: record?.id || crypto.randomUUID(),
-      level, unit, period: periodVal.trim(), date, content: content.trim(),
-      participants: participants !== '' ? parseInt(participants) : null,
-      plan_files: planFiles, photo_files: photoFiles,
+      ...(isLocked ? {} : {
+        level, unit, period: periodVal.trim(), date,
+        content: content.trim(),
+        participants: participants !== '' ? parseInt(participants) : null,
+      }),
+      plan_files: planFiles, sign_files: signFiles, photo_files: photoFiles,
       created_at: record?.created_at || undefined,
     });
   }
@@ -78,39 +88,49 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
       <div style={{ background:'#fff', borderRadius:12, padding:24, width:560, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
-        <h2 style={{ marginBottom:20, fontSize:16, fontWeight:700 }}>{isNew ? '新增常訓紀錄' : '編輯常訓紀錄'}</h2>
+        <h2 style={{ marginBottom: isLocked ? 12 : 20, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+          {isNew ? '新增常訓紀錄' : '編輯常訓紀錄'}
+          {isLocked && <span style={{ fontSize:11, background:'#fef9c3', color:'#854d0e', borderRadius:4, padding:'2px 7px', fontWeight:500 }}>已封存</span>}
+        </h2>
+        {isLocked && (
+          <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:6, padding:'8px 12px', marginBottom:16, fontSize:12, color:'#92400e', display:'flex', alignItems:'center', gap:6 }}>
+            <i className="ri-lock-line" />114年資料已封存，基本欄位不可修改，僅可補充或更新附件
+          </div>
+        )}
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
           <div><label style={lStyle}>訓練層級</label>
-            <select style={iStyle} value={level} onChange={e => setLevel(e.target.value)}>
+            <select style={{...iStyle, ...(isLocked?{background:"#f8fafc",color:"#94a3b8"}:{})}} value={level} onChange={e => setLevel(e.target.value)} disabled={isLocked}>
               {TRAINING_LEVELS.map(l => <option key={l}>{l}</option>)}
             </select>
           </div>
           <div><label style={lStyle}>填報單位</label>
-            <select style={iStyle} value={unit} onChange={e => setUnit(e.target.value)}>
+            <select style={{...iStyle, ...(isLocked?{background:"#f8fafc",color:"#94a3b8"}:{})}} value={unit} onChange={e => setUnit(e.target.value)} disabled={isLocked}>
               {TRAINING_UNITS.map(u => <option key={u}>{u}</option>)}
             </select>
           </div>
           <div><label style={lStyle}>年度期別 *</label>
-            <input style={iStyle} value={periodVal} onChange={e => setPeriodVal(e.target.value)} placeholder="如：114年下半年 或 114年11月" />
+            <input style={{...iStyle, ...(isLocked?{background:"#f8fafc",color:"#94a3b8"}:{})}} value={periodVal} onChange={e => setPeriodVal(e.target.value)} placeholder="如：114年下半年 或 114年11月" disabled={isLocked} />
           </div>
           <div><label style={lStyle}>參與人次</label>
-            <input style={iStyle} type="number" value={participants} onChange={e => setParticipants(e.target.value)} placeholder="人" />
+            <input style={{...iStyle, ...(isLocked?{background:"#f8fafc",color:"#94a3b8"}:{})}} type="number" value={participants} onChange={e => setParticipants(e.target.value)} placeholder="人" disabled={isLocked} />
           </div>
           <div style={{ gridColumn:'1/-1' }}><label style={lStyle}>訓練日期</label>
-            <input style={iStyle} value={date} onChange={e => setDate(e.target.value)} placeholder="如：114年11月24、25、26、27日" />
+            <input style={{...iStyle, ...(isLocked?{background:"#f8fafc",color:"#94a3b8"}:{})}} value={date} onChange={e => setDate(e.target.value)} placeholder="如：114年11月24、25、26、27日" disabled={isLocked} />
           </div>
           <div style={{ gridColumn:'1/-1' }}><label style={lStyle}>課程內容 *</label>
-            <textarea style={{ ...iStyle, height:80, resize:'vertical' }} value={content} onChange={e => setContent(e.target.value)} />
+            <textarea style={{...iStyle, height:80, resize:'vertical', ...(isLocked?{background:"#f8fafc",color:"#94a3b8"}:{})}} value={content} onChange={e => setContent(e.target.value)} disabled={isLocked} />
           </div>
         </div>
 
-        {isAdmin && <>
-          {/* 訓練計畫 */}
-          <div style={{ borderTop:'1px solid #e2e8f0', paddingTop:14, marginBottom:12 }}>
-            <p style={{ fontSize:13, fontWeight:600, marginBottom:10 }}>訓練計畫文件</p>
+        {/* 附件區塊：開放全員，三種類型 */}
+        <div style={{ borderTop:'1px solid #e2e8f0', paddingTop:14 }}>
+
+          {/* 訓練計畫文件 */}
+          <div style={{ marginBottom:14 }}>
+            <p style={{ fontSize:13, fontWeight:600, marginBottom:8 }}>訓練計畫文件</p>
             <label style={{ display:'inline-block', border:'1px solid #059669', color:'#059669', borderRadius:6, padding:'6px 12px', cursor:'pointer', fontSize:13, marginBottom:8 }}>
-              上傳文件（PDF/Word/PPT）
+              上傳（PDF / Word / PPT）
               <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" style={{ display:'none' }}
                 onChange={e => { if (e.target.files[0]) uploadFile(e.target.files[0], 'plan'); e.target.value=''; }} disabled={uploading} />
             </label>
@@ -124,15 +144,35 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
             ))}
           </div>
 
-          {/* 訓練照片 */}
-          <div style={{ marginBottom:16 }}>
-            <p style={{ fontSize:13, fontWeight:600, marginBottom:10 }}>訓練紀實照片</p>
+          {/* 簽到表 */}
+          <div style={{ marginBottom:14 }}>
+            <p style={{ fontSize:13, fontWeight:600, marginBottom:8 }}>簽到表</p>
             <label style={{ display:'inline-block', border:'1px solid #059669', color:'#059669', borderRadius:6, padding:'6px 12px', cursor:'pointer', fontSize:13, marginBottom:8 }}>
-              上傳照片（JPG/PNG）
+              上傳（PDF / Word / 圖片）
+              <input type="file" accept=".pdf,.doc,.docx,image/*" style={{ display:'none' }}
+                onChange={e => { if (e.target.files[0]) uploadFile(e.target.files[0], 'sign'); e.target.value=''; }} disabled={uploading} />
+            </label>
+            {signFiles.map(f => (
+              <div key={f.fileId} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid #f1f5f9', fontSize:13 }}>
+                <i className="ri-file-list-line" style={{ color:'#475569' }}></i>
+                <a href={f.viewUrl} target="_blank" rel="noreferrer" style={{ flex:1, color:'#2563eb', textDecoration:'none', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.name}</a>
+                <a href={f.downloadUrl} target="_blank" rel="noreferrer" style={{ color:'#64748b', fontSize:12 }}>下載</a>
+                <button onClick={() => removeFile(f.fileId, 'sign')} style={{ border:'none', background:'none', color:'#dc2626', cursor:'pointer', fontSize:16, lineHeight:1 }}>×</button>
+              </div>
+            ))}
+          </div>
+
+          {/* 紀實照片 */}
+          <div style={{ marginBottom:16 }}>
+            <p style={{ fontSize:13, fontWeight:600, marginBottom:8 }}>
+              訓練紀實照片
+              {uploadMsg && <span style={{ marginLeft:10, fontSize:12, color:'#64748b', fontWeight:400 }}>{uploadMsg}</span>}
+            </p>
+            <label style={{ display:'inline-block', border:'1px solid #059669', color:'#059669', borderRadius:6, padding:'6px 12px', cursor:'pointer', fontSize:13, marginBottom:8 }}>
+              上傳照片（JPG / PNG）
               <input type="file" accept="image/*" multiple style={{ display:'none' }}
                 onChange={e => { Array.from(e.target.files).forEach(f => uploadFile(f, 'photo')); e.target.value=''; }} disabled={uploading} />
             </label>
-            {uploadMsg && <span style={{ marginLeft:10, fontSize:12, color:'#64748b' }}>{uploadMsg}</span>}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginTop:8 }}>
               {photoFiles.map(f => (
                 <div key={f.fileId} style={{ position:'relative', aspectRatio:'1', borderRadius:6, overflow:'hidden', border:'1px solid #e2e8f0' }}>
@@ -144,11 +184,11 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
               ))}
             </div>
           </div>
-        </>}
+        </div>
 
         <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
           <button onClick={onClose} style={{ border:'1px solid #64748b', background:'#fff', color:'#64748b', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>取消</button>
-          <button onClick={handleSubmit} style={{ border:'none', background:'#dc2626', color:'#fff', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>{isNew ? '新增' : '儲存'}</button>
+          <button onClick={handleSubmit} style={{ border:'none', background:'#dc2626', color:'#fff', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>{isLocked ? '儲存附件' : isNew ? '新增' : '儲存'}</button>
         </div>
       </div>
 
@@ -240,6 +280,8 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange, onLoadingChan
   }
 
   async function handleDelete(id) {
+    const target = records.find(r => r.id === id);
+    if (target?.period?.startsWith('114年')) { showMsg('114年資料已封存，無法刪除'); return; }
     const code = window.prompt('請輸入確認碼以刪除此筆（輸入：確認刪除）');
     if (code === null) return;
     if (code !== '確認刪除') { showMsg('確認碼不正確，取消刪除'); return; }
@@ -384,7 +426,10 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange, onLoadingChan
                 <tr key={r.id}>
                   <td><span style={{ fontSize:12, background: r.level==='大隊常訓'?'#fee2e2':'#dbeafe', color: r.level==='大隊常訓'?'#dc2626':'#2563eb', borderRadius:4, padding:'2px 6px' }}>{r.level}</span></td>
                   <td>{r.unit}</td>
-                  <td>{r.period}</td>
+                  <td>
+                    {r.period}
+                    {r.period?.startsWith('114年') && <i className="ri-lock-line" style={{ fontSize:11, color:'#94a3b8', marginLeft:4 }} title="已封存" />}
+                  </td>
                   <td style={{ fontSize:12, color:'#64748b', maxWidth:120, wordBreak:'break-all' }}>{r.date}</td>
                   <td style={{ maxWidth:240 }}><span style={{ display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{r.content}</span></td>
                   <td style={{ textAlign:'right' }}>{r.participants ?? '—'}</td>
@@ -475,6 +520,19 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange, onLoadingChan
               </div>
             )}
 
+            {viewRecord.sign_files?.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ fontWeight:600, fontSize:13, marginBottom:8 }}>簽到表</p>
+                {viewRecord.sign_files.map(f => (
+                  <div key={f.fileId} style={{ display:'flex', gap:8, alignItems:'center', padding:'6px 0', borderBottom:'1px solid #f1f5f9', fontSize:13 }}>
+                    <i className="ri-file-list-line" style={{ color:'#475569' }}></i>
+                    <a href={f.viewUrl} target="_blank" rel="noreferrer" style={{ flex:1, color:'#2563eb', textDecoration:'none' }}>{f.name}</a>
+                    <a href={f.downloadUrl} target="_blank" rel="noreferrer" style={{ color:'#64748b', fontSize:12 }}>下載</a>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {viewRecord.photo_files?.length > 0 && (
               <div>
                 <p style={{ fontWeight:600, fontSize:13, marginBottom:8 }}>訓練紀實照片（{viewRecord.photo_files.length} 張）</p>
@@ -490,8 +548,13 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange, onLoadingChan
             )}
 
             <div style={{ display:'flex', justifyContent:'space-between', marginTop:20 }}>
-              <button onClick={() => handleDelete(viewRecord.id)} style={{ border:'1px solid #dc2626', background:'#fff', color:'#dc2626', borderRadius:6, padding:'8px 12px', cursor:'pointer', fontSize:13 }}>刪除此筆</button>
-              <button onClick={() => { setViewRecord(null); setEditTarget(viewRecord); }} style={{ border:'none', background:'#dc2626', color:'#fff', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>編輯</button>
+              {viewRecord.period?.startsWith('114年')
+                ? <span style={{ fontSize:12, color:'#94a3b8', display:'flex', alignItems:'center', gap:4 }}><i className="ri-lock-line" />已封存</span>
+                : <button onClick={() => handleDelete(viewRecord.id)} style={{ border:'1px solid #dc2626', background:'#fff', color:'#dc2626', borderRadius:6, padding:'8px 12px', cursor:'pointer', fontSize:13 }}>刪除此筆</button>
+              }
+              <button onClick={() => { setViewRecord(null); setEditTarget(viewRecord); }} style={{ border:'none', background:'#dc2626', color:'#fff', borderRadius:6, padding:'8px 16px', cursor:'pointer', fontSize:13 }}>
+                {viewRecord.period?.startsWith('114年') ? '補充附件' : '編輯'}
+              </button>
             </div>
           </div>
         </div>
