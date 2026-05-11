@@ -291,8 +291,9 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
           if (!row || !row[4]) { skipped++; continue; }
           const key = `${String(row[1]||'').trim()}|${String(row[2]||'').trim()}|${String(row[4]||'').trim()}`;
           if (existing.has(key)) { skipped++; continue; }
+          const newId = crypto.randomUUID();
           next.push({
-            id: crypto.randomUUID(),
+            id: newId,
             level: String(row[0]||'').trim(),
             unit: String(row[1]||'').trim(),
             period: String(row[2]||'').trim(),
@@ -301,7 +302,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
             participants: row[5] !== undefined && row[5] !== '' ? parseInt(row[5]) : null,
             plan_files: [], photo_files: [],
           });
-          existing.add(key); added++;
+          existing.add(key); newIds.push(newId); added++;
         }
         setRecords(next); setPage(1);
         setPendingIds(prev => { const s = new Set(prev); newIds.forEach(id => s.add(id)); return s; });
