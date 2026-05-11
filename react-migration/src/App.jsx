@@ -134,8 +134,26 @@ export function App() {
   }, [records, year, semester]);
 
 
-  // 自動載入：用已初始化的 period（最新有資料期別），不重複拉取
-  useEffect(() => { handleLoadData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 自動載入：全量拉取所有年度，不帶期別篩選（可靠、不受期別選擇影響）
+  useEffect(() => {
+    setLoading(true);
+    loadFromGAS({ year: '', semester: '' }, [])
+      .then(({ records: next }) => {
+        setRecords(next);
+        resetPages();
+        // 自動切到最新有資料的期別
+        if (next.length) {
+          const latest = [...new Set(next.map(r => `${r.year}年${r.semester || '上半年'}`))]
+            .sort().reverse()[0];
+          if (latest) setPeriod(p => {
+            const hasCurrent = next.some(r => `${r.year}年${r.semester || '上半年'}` === p);
+            return hasCurrent ? p : latest;
+          });
+        }
+      })
+      .catch(e => showMsg('載入失敗：' + e.message))
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleModalSave(rec) {
     const idx = records.findIndex(r => r.id === rec.id);
@@ -200,17 +218,17 @@ export function App() {
   async function handleLoadData() {
     setLoading(true);
     try {
-      const { records: next, incoming, skipped } = await loadFromGAS({ year, semester }, records);
+      const { records: next } = await loadFromGAS({ year: '', semester: '' }, []);
       setRecords(next); resetPages();
-      const allPeriods = [...new Set(next.map(r => `${r.year}年${r.semester || '上半年'}`))]
-        .sort().reverse();
-      if (allPeriods.length) {
-        setPeriod(prev => {
-          const hasCurrent = next.some(r => `${r.year}年${r.semester || '上半年'}` === prev);
-          return hasCurrent ? prev : allPeriods[0];
+      if (next.length) {
+        const latest = [...new Set(next.map(r => `${r.year}年${r.semester || '上半年'}`))]
+          .sort().reverse()[0];
+        if (latest) setPeriod(p => {
+          const hasCurrent = next.some(r => `${r.year}年${r.semester || '上半年'}` === p);
+          return hasCurrent ? p : latest;
         });
       }
-      showMsg(`已更新 ${incoming.length} 筆${skipped > 0 ? `，略過重複 ${skipped} 筆` : ''}`);
+      showMsg(`已更新 ${next.length} 筆`);
     } catch (e) { showMsg('更新失敗：' + e.message); }
     finally { setLoading(false); }
   }
