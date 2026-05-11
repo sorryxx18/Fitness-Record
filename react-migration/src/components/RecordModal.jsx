@@ -8,6 +8,7 @@ const mInput = { width: '100%', border: '1px solid #e2e8f0', borderRadius: 6, pa
 export function RecordModal({ record, period, onSave, onDelete, onClose }) {
   const { year, semester } = parsePeriod(period);
   const isNew = !record?.id;
+  const isLocked = !isNew && String(record?.year) === '114';
 
   const [brigade, setBrigade] = useState(record?.brigade || BRIGADES[0]);
   const [squad, setSquad] = useState(record?.squad || '');
@@ -69,38 +70,46 @@ export function RecordModal({ record, period, onSave, onDelete, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 500, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-        <h2 style={{ marginBottom: 20, fontSize: 16, fontWeight: 700 }}>{isNew ? '新增紀錄' : '編輯紀錄'}</h2>
+        <h2 style={{ marginBottom: isLocked ? 12 : 20, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isNew ? '新增紀錄' : '編輯紀錄'}
+          {isLocked && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 4, padding: '2px 7px', fontWeight: 500 }}>已封存</span>}
+        </h2>
+        {isLocked && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#92400e', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <i className="ri-lock-line" />114年資料已封存，僅供查閱，無法修改或刪除
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div><label style={mLabel}>大隊</label>
-            <select style={mInput} value={brigade} onChange={e => handleBrigadeChange(e.target.value)}>
+            <select style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} value={brigade} onChange={e => handleBrigadeChange(e.target.value)} disabled={isLocked}>
               {BRIGADES.map(b => <option key={b}>{b}</option>)}
             </select>
           </div>
           <div><label style={mLabel}>中隊</label>
-            <select style={mInput} value={squad} onChange={e => handleSquadChange(e.target.value)}>
+            <select style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} value={squad} onChange={e => handleSquadChange(e.target.value)} disabled={isLocked}>
               <option value="">請選擇</option>
               {squads.map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
           <div><label style={mLabel}>分隊</label>
             {units.length > 0
-              ? <select style={mInput} value={unit} onChange={e => setUnit(e.target.value)}>
+              ? <select style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} value={unit} onChange={e => setUnit(e.target.value)} disabled={isLocked}>
                   <option value="">請選擇</option>
                   {units.map(u => <option key={u}>{u}</option>)}
                 </select>
-              : <input style={mInput} value={unit} onChange={e => setUnit(e.target.value)} placeholder="分隊名稱" />
+              : <input style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} value={unit} onChange={e => setUnit(e.target.value)} placeholder="分隊名稱" disabled={isLocked} />
             }
           </div>
           <div><label style={mLabel}>姓名 *</label>
-            <input style={mInput} value={name} onChange={e => setName(e.target.value)} placeholder="請輸入姓名" />
+            <input style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} value={name} onChange={e => setName(e.target.value)} placeholder="請輸入姓名" disabled={isLocked} />
           </div>
           <div><label style={mLabel}>性別</label>
-            <select style={mInput} value={gender} onChange={e => setGender(e.target.value)}>
+            <select style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} value={gender} onChange={e => setGender(e.target.value)} disabled={isLocked}>
               <option>男</option><option>女</option>
             </select>
           </div>
           <div><label style={mLabel}>年齡</label>
-            <input style={mInput} type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="歲" />
+            <input style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} type="number" value={age} onChange={e => setAge(e.target.value)} placeholder="歲" disabled={isLocked} />
           </div>
         </div>
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 14, marginBottom: 16 }}>
@@ -108,14 +117,14 @@ export function RecordModal({ record, period, onSave, onDelete, onClose }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             {scoreFields.map(([label, key]) => (
               <div key={key}><label style={mLabel}>{label}</label>
-                <input style={mInput} type="number" step="any" value={vals[key]}
-                  onChange={e => setVals(v => ({ ...v, [key]: e.target.value }))} />
+                <input style={{...mInput, ...(isLocked?{background:'#f8fafc',color:'#94a3b8'}:{})}} type="number" step="any" value={vals[key]}
+                  onChange={e => setVals(v => ({ ...v, [key]: e.target.value }))} disabled={isLocked} />
               </div>
             ))}
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-          {!isNew && onDelete && (
+          {!isNew && onDelete && !isLocked && (
             <button onClick={() => { if (window.confirm('確定刪除此筆紀錄？')) onDelete(record.id); }}
               style={{ border: '1px solid #dc2626', background: '#fff', color: '#dc2626', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 13 }}>
               刪除此筆
@@ -124,12 +133,14 @@ export function RecordModal({ record, period, onSave, onDelete, onClose }) {
           <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
             <button onClick={onClose}
               style={{ border: '1px solid #64748b', background: '#fff', color: '#64748b', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
-              取消
+              {isLocked ? '關閉' : '取消'}
             </button>
-            <button onClick={handleSubmit}
-              style={{ border: 'none', background: '#dc2626', color: '#fff', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
-              {isNew ? '新增' : '儲存'}
-            </button>
+            {!isLocked && (
+              <button onClick={handleSubmit}
+                style={{ border: 'none', background: '#dc2626', color: '#fff', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
+                {isNew ? '新增' : '儲存'}
+              </button>
+            )}
           </div>
         </div>
       </div>
