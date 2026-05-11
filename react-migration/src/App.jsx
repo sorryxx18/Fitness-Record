@@ -37,6 +37,7 @@ export function App() {
   const [resPage, setResPage] = useState(1);
 
   const [editTarget, setEditTarget] = useState(null); // null=closed, {}=new, record=editing
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [trainingRecordsForExport, setTrainingRecordsForExport] = useState([]);
 
@@ -320,18 +321,20 @@ export function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      <aside className={sidebarOpen ? "sidebar open" : "sidebar"}>
         <div className="logo"><b>台北消防局</b><span>常訓體能成績管理系統</span></div>
         {pages.map(p => (
-          <button key={p.id} className={page === p.id ? 'active' : ''} onClick={() => setPage(p.id)}>
+          <button key={p.id} className={page === p.id ? 'active' : ''} onClick={() => { setPage(p.id); setSidebarOpen(false); }}>
             <i className={p.icon}></i>{p.label}
           </button>
         ))}
         <small style={{ marginTop: 'auto' }}>{isAdmin ? '管理者模式' : '查詢模式'}</small>
       </aside>
+      <div className={sidebarOpen ? 'sidebar-backdrop open' : 'sidebar-backdrop'} onClick={() => setSidebarOpen(false)} />
 
       <main className="main">
         <header>
+          <button className="hamburger" onClick={() => setSidebarOpen(o => !o)}><i className="ri-menu-line" /></button>
           <h1>{pages.find(p => p.id === page)?.label}</h1>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {msg && <span style={{ fontSize: 13, color: 'var(--muted)' }}>{msg}</span>}
@@ -453,16 +456,6 @@ export function App() {
           onClose={() => setShowExport(false)}
         />
       )}
-
-      {/* 手機底部導覽列 */}
-      <nav className="mobile-nav">
-        {pages.map(p => (
-          <button key={p.id} className={page === p.id ? 'active' : ''} onClick={() => setPage(p.id)}>
-            <i className={p.icon}></i>
-            <span>{p.label}</span>
-          </button>
-        ))}
-      </nav>
 
       {editTarget !== null && (
         <RecordModal
