@@ -177,6 +177,8 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
   const [lightbox, setLightbox] = useState(null);
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'wall'
+  const [pendingIds, setPendingIds] = useState(new Set());
+  const [syncing, setSyncing] = useState(false);
 
   const allPeriods = useMemo(() => [...new Set(records.map(r => r.period))].sort().reverse(), [records]);
 
@@ -245,6 +247,23 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
     } catch { showMsg('刪除失敗，請稍後再試'); }
   }
 
+
+  async function handleBatchSync() {
+    const toSync = records.filter(r => pendingIds.has(r.id));
+    if (!toSync.length) return;
+    setSyncing(true);
+    let done = 0, failed = 0;
+    for (const rec of toSync) {
+      try {
+        await gasPost({ action: 'trainingSave', record: JSON.stringify(rec) });
+        setPendingIds(prev => { const s = new Set(prev); s.delete(rec.id); return s; });
+        done++;
+      } catch { failed++; }
+    }
+    setSyncing(false);
+    showMsg(failed ? `上傳完成：${done} 成功，${failed} 失敗` : `已上傳 ${done} 筆`);
+  }
+
   function handleDownloadTemplate() {
     const headers = ['訓練層級', '填報單位', '年度期別', '訓練日期', '課程內容', '參與人次'];
     const example = ['大隊常訓', '第一大隊', '114年上半年', '114年3月24、25日', '搜救技術訓練、體能強化', 50];
@@ -264,6 +283,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
         const ws = wb.Sheets['常訓紀錄'] || wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
         let added = 0, skipped = 0;
+        const newIds = [];
         const next = [...records];
         const existing = new Set(records.map(r => `${r.unit}|${r.period}|${r.content}`));
         for (let i = 1; i < rows.length; i++) {
@@ -284,7 +304,8 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
           existing.add(key); added++;
         }
         setRecords(next); setPage(1);
-        showMsg(`匯入完成：${added} 新增，${skipped} 略過`);
+        setPendingIds(prev => { const s = new Set(prev); newIds.forEach(id => s.add(id)); return s; });
+        showMsg(`匯入完成：${added} 新增，${skipped} 略過，請點「上傳到後端」儲存`);
       } catch(err) { showMsg('匯入失敗：' + err.message); }
     };
     reader.readAsArrayBuffer(file);
@@ -312,6 +333,11 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
           <input type="file" accept=".xlsx,.xls" style={{ display:'none' }}
             onChange={e => { handleImport(e.target.files[0]); e.target.value=''; }} />
         </label>
+        {pendingIds.size > 0 && (
+          <button style={btnS('#7c3aed')} onClick={handleBatchSync} disabled={syncing}>
+            {syncing ? '上傳中…' : `上傳 ${pendingIds.size} 筆到後端`}
+          </button>
+        )}
         {msg && <span style={{ fontSize:13, color:'var(--muted)' }}>{msg}</span>}
         <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
           <button
