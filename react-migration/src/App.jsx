@@ -28,7 +28,18 @@ export function App() {
   const [adminKey, setAdminKey] = useState(() => localStorage.getItem('admin_key') || '');
   const isAdmin = !!adminKey;
 
-  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const [period, setPeriod] = useState(() => {
+    // 預設選最新有資料的期別，而非當下日曆期別
+    try {
+      const recs = JSON.parse(localStorage.getItem('fitness_records') || '[]');
+      if (recs?.length) {
+        const latest = [...new Set(recs.map(r => `${r.year}年${r.semester || '上半年'}`))]
+          .sort().reverse()[0];
+        if (latest) return latest;
+      }
+    } catch {}
+    return DEFAULT_PERIOD;
+  });
   const [brigade, setBrigade] = useState('all');
   const [squad, setSquad] = useState('all');
   const [unit, setUnit] = useState('all');
@@ -189,6 +200,14 @@ export function App() {
     try {
       const { records: next, incoming, skipped } = await loadFromGAS({ year, semester }, records);
       setRecords(next); resetPages();
+      const allPeriods = [...new Set(next.map(r => `${r.year}年${r.semester || '上半年'}`))]
+        .sort().reverse();
+      if (allPeriods.length) {
+        setPeriod(prev => {
+          const hasCurrent = next.some(r => `${r.year}年${r.semester || '上半年'}` === prev);
+          return hasCurrent ? prev : allPeriods[0];
+        });
+      }
       showMsg(`已更新 ${incoming.length} 筆${skipped > 0 ? `，略過重複 ${skipped} 筆` : ''}`);
     } catch (e) { showMsg('更新失敗：' + e.message); }
     finally { setLoading(false); }
