@@ -134,14 +134,31 @@ export function App() {
   }, [records, year, semester]);
 
 
-  // 自動載入：mount 後全量拉一次（不受期別篩選限制，確保初次開啟有資料）
+  // 自動載入：依本機快取的年度拉資料，沒有快取則載入 114 年兩個學期
   useEffect(() => {
     setLoading(true);
-    loadFromGAS({ year: 'all', semester: '' }, records)
-      .then(({ records: next, incoming, skipped }) => {
-        setRecords(next);
-        if (incoming.length) showMsg(`已載入 ${incoming.length} 筆`);
-      })
+    const doLoad = async () => {
+      // 找出本機已有的年度；沒有則預設拉 114
+      let storedYears = [];
+      try {
+        const recs = JSON.parse(localStorage.getItem('fitness_records') || '[]');
+        storedYears = [...new Set(recs.map(r => String(r.year)))].sort().reverse();
+      } catch {}
+      const yearsToLoad = storedYears.length ? storedYears.slice(0, 2) : ['114'];
+      const semesters = ['上半年', '下半年'];
+      let merged = records;
+      for (const yr of yearsToLoad) {
+        for (const sem of semesters) {
+          try {
+            const { records: next } = await loadFromGAS({ year: yr, semester: sem }, merged);
+            merged = next;
+          } catch {}
+        }
+      }
+      setRecords(merged);
+      resetPages();
+    };
+    doLoad()
       .catch(e => showMsg('自動載入失敗：' + e.message))
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
