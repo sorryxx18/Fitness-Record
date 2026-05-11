@@ -16,9 +16,11 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
   , [trendData, yearFilter]);
 
   const periodCards = useMemo(() => [...filteredTrend].reverse(), [filteredTrend]);
+  const latestPeriod = trendData[trendData.length - 1];
+  const latestPassRate = latestPeriod?.count ? `${latestPeriod.passRate}%` : '—';
+  const latestFailCount = latestPeriod?.count ? Math.max(0, latestPeriod.count - Math.round(latestPeriod.count * latestPeriod.passRate / 100)) : 0;
 
   // ── 最新期別的大隊狀態 ────────────────────────────────────
-  const latestPeriod = trendData[trendData.length - 1];
   const brigadeStats = useMemo(() => {
     if (!latestPeriod || !records?.length) return [];
     const { year, semester } = parsePeriod(latestPeriod.period);
@@ -72,6 +74,21 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
 
   return (
     <section>
+      <div className="hero-panel">
+        <div className="hero-card">
+          <h2>常訓體能成績總覽</h2>
+          <p>
+            快速掌握跨期趨勢、最新期別合格率與各單位狀態。以清楚、穩重、易讀的後台介面呈現查詢、統計與報表輸出，協助承辦快速完成常訓資料檢核。
+          </p>
+        </div>
+        <div className="hero-side">
+          <span>最新期別</span>
+          <strong>{latestPeriod?.period || '尚無資料'}</strong>
+          <span style={{ marginTop: 10 }}>最新合格率</span>
+          <strong>{latestPassRate}</strong>
+        </div>
+      </div>
+
       {/* 篩選列 */}
       <div className="filters" style={{ marginBottom: 16 }}>
         <select value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
@@ -84,9 +101,16 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
         </select>
       </div>
 
+      <div className="cards" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 20 }}>
+        <div className="stat-card featured"><span>最新期別</span><b>{latestPeriod?.count || 0}</b><span>{latestPeriod?.period || '尚無資料'} 人員紀錄</span></div>
+        <div className="stat-card"><span>最新合格率</span><b>{latestPassRate}</b><span>最新期別及格 / 總人數</span></div>
+        <div className="stat-card"><span>平均分數</span><b>{latestPeriod?.avgScore || '0.0'}</b><span>最新期別平均</span></div>
+        <div className="stat-card"><span>未達標估計</span><b>{latestFailCount}</b><span>建議優先追蹤名單</span></div>
+      </div>
+
       {/* ① 期別摘要卡片 */}
       {periodCards.length === 0
-        ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', background: '#fff', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }}>
+        ? <div className="empty" style={{ padding: 40, textAlign: 'center', marginBottom: 16 }}>
             尚無資料，請先點「更新資料」
           </div>
         : <div className="period-cards" style={{ marginBottom: 20 }}>
@@ -96,10 +120,10 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
               const rdiff = prev ? (d.passRate - prev.passRate).toFixed(1) : null;
               const rateColor = !d.count ? '#94a3b8' : d.passRate >= 70 ? '#059669' : d.passRate >= 50 ? '#d97706' : '#dc2626';
               return (
-                <div key={d.period} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#334155', marginBottom: 8 }}>{d.period}</div>
+                <div key={d.period} className="stat-card">
+                  <div style={{ fontWeight: 800, fontSize: 13, color: '#334155', marginBottom: 8 }}>{d.period}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                    <span style={{ fontSize: 26, fontWeight: 800, color: rateColor, lineHeight: 1 }}>
+                    <span style={{ fontSize: 26, fontWeight: 900, color: rateColor, lineHeight: 1 }}>
                       {d.count ? d.passRate + '%' : '—'}
                     </span>
                     {rdiff !== null && (
@@ -108,8 +132,8 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
                       </span>
                     )}
                   </div>
-                  <div style={{ height: 4, background: '#f1f5f9', borderRadius: 2, marginBottom: 8 }}>
-                    <div style={{ height: '100%', background: rateColor, borderRadius: 2, width: `${Math.min(d.passRate, 100)}%`, transition: 'width 0.4s' }} />
+                  <div style={{ height: 5, background: '#f1f5f9', borderRadius: 999, marginBottom: 8 }}>
+                    <div style={{ height: '100%', background: rateColor, borderRadius: 999, width: `${Math.min(d.passRate, 100)}%`, transition: 'width 0.4s' }} />
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{d.count} 人・平均 {d.avgScore} 分</div>
                 </div>
@@ -119,8 +143,8 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
       }
 
       {/* ② 跨期趨勢圖 */}
-      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-        <h3 style={{ marginBottom: 12, fontSize: 14, fontWeight: 700 }}>跨期趨勢</h3>
+      <div className="chart-card" style={{ marginBottom: 16 }}>
+        <h3>跨期趨勢</h3>
         <div style={{ height: 240 }}>
           {filteredTrend.length >= 2
             ? <LineChart labels={filteredTrend.map(d => d.period)} datasets={lineDatasets} />
@@ -133,8 +157,8 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
 
       {/* ③ 各大隊狀態（最新期別） */}
       {brigadeStats.length > 0 && (
-        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-          <h3 style={{ marginBottom: 14, fontSize: 14, fontWeight: 700 }}>
+        <div className="chart-card" style={{ marginBottom: 16 }}>
+          <h3>
             各大隊狀態
             {latestPeriod && <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400, marginLeft: 8 }}>（{latestPeriod.period}）</span>}
           </h3>
@@ -142,14 +166,14 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
             {brigadeStats.map(b => {
               const s = unitStyle(b);
               return (
-                <div key={b.brigade} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 8, padding: '12px 14px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 6 }}>{b.brigade}</div>
+                <div key={b.brigade} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 16, padding: '13px 15px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 6 }}>{b.brigade}</div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: '#64748b' }}>{b.count} 人</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, background: s.badgeBg, color: s.badgeText, borderRadius: 4, padding: '2px 7px' }}>{s.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, background: s.badgeBg, color: s.badgeText, borderRadius: 999, padding: '3px 8px' }}>{s.label}</span>
                   </div>
-                  <div style={{ height: 4, background: '#e2e8f0', borderRadius: 2 }}>
-                    <div style={{ height: '100%', background: s.bar, borderRadius: 2, width: `${Math.min(b.passRate, 100)}%`, transition: 'width 0.5s' }} />
+                  <div style={{ height: 5, background: '#e2e8f0', borderRadius: 999 }}>
+                    <div style={{ height: '100%', background: s.bar, borderRadius: 999, width: `${Math.min(b.passRate, 100)}%`, transition: 'width 0.5s' }} />
                   </div>
                 </div>
               );
@@ -159,21 +183,21 @@ export function DashboardPage({ brigade, setBrigade, trendData, trainingRecords,
       )}
 
       {/* ④ 常訓填報進度 */}
-      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div className="chart-card" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <i className={reportedUnits >= TOTAL_TRAINING_UNITS ? 'ri-shield-check-line' : 'ri-time-line'}
           style={{ fontSize: 22, color: reportedUnits >= TOTAL_TRAINING_UNITS ? '#059669' : '#d97706', flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
             常訓填報：
             <span style={{ color: reportedUnits >= TOTAL_TRAINING_UNITS ? '#059669' : '#d97706' }}>
               {reportedUnits} / {TOTAL_TRAINING_UNITS} 單位已填報
             </span>
           </div>
-          <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3 }}>
+          <div style={{ height: 6, background: '#e2e8f0', borderRadius: 999 }}>
             <div style={{
               height: '100%',
               background: reportedUnits >= TOTAL_TRAINING_UNITS ? '#059669' : '#d97706',
-              borderRadius: 3,
+              borderRadius: 999,
               width: `${Math.round((reportedUnits / TOTAL_TRAINING_UNITS) * 100)}%`,
               transition: 'width 0.5s',
             }} />
