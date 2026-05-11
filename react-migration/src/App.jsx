@@ -134,8 +134,17 @@ export function App() {
   }, [records, year, semester]);
 
 
-  // 自動載入：mount 後觸發一次資料同步
-  useEffect(() => { handleLoadData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 自動載入：mount 後全量拉一次（不受期別篩選限制，確保初次開啟有資料）
+  useEffect(() => {
+    setLoading(true);
+    loadFromGAS({ year: 'all', semester: '' }, records)
+      .then(({ records: next, incoming, skipped }) => {
+        setRecords(next);
+        if (incoming.length) showMsg(`已載入 ${incoming.length} 筆`);
+      })
+      .catch(e => showMsg('自動載入失敗：' + e.message))
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleModalSave(rec) {
     const idx = records.findIndex(r => r.id === rec.id);
