@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { GAS_URL } from '../lib/fitnessCore.js';
 import { PAGE_SIZE } from '../constants/appConstants.js';
@@ -165,7 +165,7 @@ function TrainingModal({ record, isAdmin, adminKey, onSave, onClose }) {
   );
 }
 
-export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
+export function TrainingPage({ isAdmin, adminKey, onRecordsChange, onLoadingChange }) {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
@@ -179,6 +179,10 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'wall'
   const [pendingIds, setPendingIds] = useState(new Set());
   const [syncing, setSyncing] = useState(false);
+
+
+  // 進頁自動載入
+  useEffect(() => { handleLoad(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const allPeriods = useMemo(() => [...new Set(records.map(r => r.period))].sort().reverse(), [records]);
 
@@ -205,7 +209,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
   function showMsg(text) { setMsg(text); setTimeout(() => setMsg(''), 4000); }
 
   async function handleLoad() {
-    setLoading(true);
+    setLoading(true); onLoadingChange?.(true);
     try {
       const params = new URLSearchParams({ action: 'trainingLoad' });
       const resp = await fetch(GAS_URL + '?' + params);
@@ -216,7 +220,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
       setPage(1);
       showMsg(`已載入 ${data.records.length} 筆`);
     } catch(e) { showMsg('載入失敗：' + e.message); }
-    finally { setLoading(false); }
+    finally { setLoading(false); onLoadingChange?.(false); }
   }
 
   async function handleSave(rec) {
@@ -251,7 +255,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
   async function handleBatchSync() {
     const toSync = records.filter(r => pendingIds.has(r.id));
     if (!toSync.length) return;
-    setSyncing(true);
+    setSyncing(true); onLoadingChange?.(true);
     let done = 0, failed = 0;
     for (const rec of toSync) {
       try {
@@ -260,7 +264,7 @@ export function TrainingPage({ isAdmin, adminKey, onRecordsChange }) {
         done++;
       } catch { failed++; }
     }
-    setSyncing(false);
+    setSyncing(false); onLoadingChange?.(false);
     showMsg(failed ? `上傳完成：${done} 成功，${failed} 失敗` : `已上傳 ${done} 筆`);
   }
 
