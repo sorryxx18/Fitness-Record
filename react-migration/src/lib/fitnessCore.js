@@ -108,13 +108,31 @@ export function calcRecord(record) {
   return { ...scores, total, passLine, pass: total >= passLine };
 }
 
+async function fetchGAS(url, retries = 2, delayMs = 2000) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 20000); // 20s timeout
+      const resp = await fetch(url, { signal: controller.signal });
+      clearTimeout(tid);
+      const data = await resp.json();
+      if (data?.ok !== false) return data;
+      // GAS returned ok:false — retry unless last attempt
+      if (i < retries) await new Promise(r => setTimeout(r, delayMs));
+      else throw new Error(data?.error || 'GAS 回傳失敗');
+    } catch (e) {
+      if (i < retries) await new Promise(r => setTimeout(r, delayMs));
+      else throw e;
+    }
+  }
+}
+
 export async function loadFromGAS({ year, semester }, currentRecords = []) {
   const params = new URLSearchParams({ action: 'load' });
   if (year && year !== 'all') params.set('year', year);
   if (semester) params.set('semester', semester);
-  const resp = await fetch(GAS_URL + '?' + params.toString());
-  const data = await resp.json();
-  if (!data?.ok || !Array.isArray(data.records)) throw new Error(data?.error || 'GSheet 載入失敗');
+  const data = await fetchGAS(GAS_URL + '?' + params.toString());
+  if (!Array.isArray(data.records)) throw new Error('資料格式異常');
   const incoming = dedupeRecordsByIdentity(data.records);
   const incomingPeriods = new Set(incoming.map(recordPeriodKey));
   const retained = currentRecords.filter(r => !incomingPeriods.has(recordPeriodKey(r)));
