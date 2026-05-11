@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   BRIGADES, DEFAULT_PERIOD,
@@ -120,6 +120,10 @@ export function App() {
       };
     });
   }, [records, year, semester]);
+
+
+  // 自動載入：mount 後觸發一次資料同步
+  useEffect(() => { handleLoadData(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleModalSave(rec) {
     const idx = records.findIndex(r => r.id === rec.id);
@@ -340,6 +344,9 @@ export function App() {
           </div>
         </header>
 
+        {/* Top loading progress bar */}
+        <div className={loading ? 'progress-bar active' : 'progress-bar'} />
+
         {/* Shared toolbar */}
         {['dashboard', 'records', 'results'].includes(page) && (
           <section style={{ paddingBottom: 0 }}>
@@ -433,7 +440,7 @@ export function App() {
         )}
         {/* Training Records */}
         {page === 'training' && (
-          <TrainingPage isAdmin={isAdmin} adminKey={adminKey} onRecordsChange={setTrainingRecordsForExport} />
+          <TrainingPage isAdmin={isAdmin} adminKey={adminKey} onRecordsChange={setTrainingRecordsForExport} onLoadingChange={setLoading} />
         )}
 
       </main>
