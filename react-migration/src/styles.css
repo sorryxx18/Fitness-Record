@@ -19,3 +19,9 @@
 @media(max-width:480px){
   .period-cards{grid-template-columns:1fr}
 }
+
+/* ── top progress bar ─────────────────────────────────────── */
+.progress-bar{position:fixed;top:56px;left:240px;right:0;height:3px;z-index:199;overflow:hidden;pointer-events:none}
+.progress-bar.active::after{content:'';position:absolute;top:0;bottom:0;left:-55%;width:55%;background:var(--red);border-radius:1px;animation:bar-run 1.3s ease-in-out infinite}
+@keyframes bar-run{0%{left:-55%}100%{left:100%}}
+@media(max-width:760px){.progress-bar{left:0}}
