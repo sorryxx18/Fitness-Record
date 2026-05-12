@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { BRIGADES, getAllUnits, getSquadsForBrigade } from '../lib/fitnessCore.js';
 import { PERIOD_OPTIONS } from '../constants/appConstants.js';
 
-export function FilterBar({ period, setPeriod, brigade, setBrigade, squad, setSquad, unit, setUnit, search, setSearch, onReset }) {
+export function FilterBar({ period, setPeriod, brigade, setBrigade, squad, setSquad, unit, setUnit, search, setSearch, onReset, searchPlaceholder, onSearchFocus }) {
   const squads = useMemo(() => brigade === 'all' ? [] : getSquadsForBrigade(brigade), [brigade]);
   const units = useMemo(() => {
     if (brigade === 'all' || squad === 'all' || squad === '大隊本部') return [];
@@ -37,8 +37,9 @@ export function FilterBar({ period, setPeriod, brigade, setBrigade, squad, setSq
         </select>
       )}
       {search !== undefined && (
-        <input type="search" placeholder="搜尋姓名" value={search}
-          onChange={e => { setSearch(e.target.value); onReset?.(); }} />
+        <input type="search" placeholder={searchPlaceholder || '搜尋姓名'} value={search}
+          onChange={e => { setSearch(e.target.value); onReset?.(); }}
+          onFocus={onSearchFocus} />
       )}
     </div>
   );
