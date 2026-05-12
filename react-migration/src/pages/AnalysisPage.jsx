@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { BRIGADES, calcRecord } from '../lib/fitnessCore.js';
 import { SCORE_COLS } from '../constants/appConstants.js';
-import { BarChart, LineChart } from '../components/Charts.jsx';
+import { BarChart } from '../components/Charts.jsx';
+import { ScoreBadge, PassBadge } from '../components/badges.jsx';
 
 // ── AnalysisPanel ────────────────────────────────────────────
-function AnalysisPanel({ trendData, brigadeCompare, period, records, personalName, setPersonalName, personalResults, handlePersonalSearch, btnStyle }) {
+function AnalysisPanel({ trendData, brigadeCompare, period, records, personalName, setPersonalName, personalResults, handlePersonalSearch, btnStyle, isAdmin, onAdminLogin }) {
   const [tab, setTab] = useState('trend');
 
   const ITEM_COLORS = ['#dc2626','#f59e0b','#059669','#2563eb','#7c3aed','#db2777','#475569'];
@@ -74,31 +75,87 @@ function AnalysisPanel({ trendData, brigadeCompare, period, records, personalNam
 
     {tab === 'personal' && (
       <>
+        {!isAdmin && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '10px 12px', marginBottom: 12, fontSize: 13, color: '#92400e', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <i className="ri-lock-line" />個人成長查詢需要解鎖。
+            <button onClick={onAdminLogin} style={{ border: '1px solid #d97706', background: '#fff', color: '#d97706', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginLeft: 4 }}>輸入金鑰</button>
+          </div>
+        )}
         <div className="filters" style={{ marginBottom: 16 }}>
-          <input type="search" placeholder="輸入姓名搜尋" value={personalName}
-            onChange={e => setPersonalName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handlePersonalSearch()} />
-          <button style={btnStyle()} onClick={handlePersonalSearch}>查詢</button>
+          <input type="search" placeholder={isAdmin ? '輸入姓名搜尋' : '🔒 需解鎖才能搜尋'}
+            value={isAdmin ? personalName : ''}
+            onChange={e => isAdmin && setPersonalName(e.target.value)}
+            onFocus={() => !isAdmin && onAdminLogin?.()}
+            onKeyDown={e => e.key === 'Enter' && isAdmin && handlePersonalSearch()} />
+          <button style={btnStyle()} onClick={() => isAdmin ? handlePersonalSearch() : onAdminLogin?.()}>查詢</button>
         </div>
-        {personalResults === null && <div style={{ color: 'var(--muted)', padding: 24 }}>輸入姓名後點擊查詢</div>}
-        {personalResults?.length === 0 && <div style={{ color: 'var(--muted)', padding: 24 }}>查無資料</div>}
-        {personalResults?.map(({ key, recs }) => {
-          const labels = recs.map(r => `${r.year}年${r.semester || ''}`);
-          const totals = recs.map(r => calcRecord(r).total);
-          const datasets = [
-            { label: '總分', data: totals, borderColor: '#111', backgroundColor: 'rgba(17,24,39,0.08)', tension: 0.3, pointRadius: 5, borderWidth: 2.5, fill: true, yAxisID: 'yTotal' },
-            ...SCORE_COLS.map((c, i) => ({
-              label: c.label, data: recs.map(r => calcRecord(r)[c.key] || 0),
-              borderColor: ITEM_COLORS[i], backgroundColor: 'transparent',
-              tension: 0.3, pointRadius: 3, borderWidth: 1.5, yAxisID: 'yItem',
-            })),
-          ];
+        {isAdmin && personalResults === null && <div style={{ color: 'var(--muted)', padding: 24 }}>輸入姓名後點擊查詢</div>}
+        {isAdmin && personalResults?.length === 0 && <div style={{ color: 'var(--muted)', padding: 24 }}>查無資料</div>}
+        {isAdmin && personalResults?.map(({ key, recs }) => {
+          const scored = recs.map(r => calcRecord(r));
+          const periods = recs.map(r => `${r.year}年${r.semester || ''}`);
+          const lastIdx = recs.length - 1;
+          const prevIdx = recs.length - 2;
           return (
             <div key={key} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-              <h3 style={{ marginBottom: 12, fontSize: 14, fontWeight: 700 }}>{recs[0]?.name}（{key}）歷年成績</h3>
-              <div style={{ height: 300 }}>
-                <LineChart labels={labels} datasets={datasets} />
+              <h3 style={{ marginBottom: 14, fontSize: 14, fontWeight: 700 }}>{recs[0]?.name}（{key}）歷年成績</h3>
+
+              {/* 比較表格 */}
+              <div className="table-wrap" style={{ marginBottom: recs.length >= 2 ? 16 : 0 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>項目</th>
+                      {periods.map(p => <th key={p}>{p}</th>)}
+                      {recs.length >= 2 && <th>最近變化</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SCORE_COLS.map(col => {
+                      const vals = scored.map(s => s[col.key] ?? 0);
+                      const delta = recs.length >= 2 ? vals[lastIdx] - vals[prevIdx] : null;
+                      return (
+                        <tr key={col.key}>
+                          <td style={{ fontWeight: 600, fontSize: 13 }}>{col.label}</td>
+                          {vals.map((v, i) => <td key={i}><ScoreBadge value={v} /></td>)}
+                          {delta !== null && (
+                            <td style={{ fontWeight: 700, color: delta > 0 ? '#059669' : delta < 0 ? '#dc2626' : '#94a3b8' }}>
+                              {delta > 0 ? '↑' : delta < 0 ? '↓' : '—'}{delta !== 0 ? Math.abs(delta) : ''}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ borderTop: '2px solid var(--border)' }}>
+                      <td style={{ fontWeight: 700 }}>總分</td>
+                      {scored.map((s, i) => (
+                        <td key={i}><b style={{ color: s.pass ? '#059669' : '#dc2626' }}>{s.total}</b></td>
+                      ))}
+                      {recs.length >= 2 && (() => {
+                        const d = scored[lastIdx].total - scored[prevIdx].total;
+                        return <td style={{ fontWeight: 700, color: d > 0 ? '#059669' : d < 0 ? '#dc2626' : '#94a3b8' }}>{d > 0 ? '↑' : d < 0 ? '↓' : '—'}{d !== 0 ? Math.abs(d) : ''}</td>;
+                      })()}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
+
+              {/* 分組長條圖（兩期以上才顯示） */}
+              {recs.length >= 2 && (
+                <div style={{ height: 220 }}>
+                  <BarChart
+                    labels={SCORE_COLS.map(c => c.label)}
+                    datasets={recs.map((r, i) => ({
+                      label: `${r.year}年${r.semester || ''}`,
+                      data: SCORE_COLS.map(col => calcRecord(r)[col.key] || 0),
+                      backgroundColor: ITEM_COLORS[i % ITEM_COLORS.length],
+                      borderRadius: 3,
+                    }))}
+                    showLegend={true}
+                    yMax={20}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -109,7 +166,7 @@ function AnalysisPanel({ trendData, brigadeCompare, period, records, personalNam
 
 
 
-export function AnalysisPage({ brigade, setBrigade, trendData, brigadeCompare, period, records, personalName, setPersonalName, personalResults, handlePersonalSearch, btnStyle }) {
+export function AnalysisPage({ brigade, setBrigade, trendData, brigadeCompare, period, records, personalName, setPersonalName, personalResults, handlePersonalSearch, btnStyle, isAdmin, onAdminLogin }) {
   return (
     <section>
       <div className="filters" style={{ marginBottom: 16 }}>
@@ -128,6 +185,8 @@ export function AnalysisPage({ brigade, setBrigade, trendData, brigadeCompare, p
         personalResults={personalResults}
         handlePersonalSearch={handlePersonalSearch}
         btnStyle={btnStyle}
+        isAdmin={isAdmin}
+        onAdminLogin={onAdminLogin}
       />
     </section>
   );
