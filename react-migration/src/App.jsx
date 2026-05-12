@@ -426,6 +426,7 @@ export function App() {
         {page === 'records' && (
           <RecordsPage
             isAdmin={isAdmin}
+            onAdminLogin={handleAdminLogin}
             period={period}
             setPeriod={setPeriod}
             brigade={brigade}
@@ -459,6 +460,8 @@ export function App() {
             personalResults={personalResults}
             handlePersonalSearch={handlePersonalSearch}
             btnStyle={btnStyle}
+            isAdmin={isAdmin}
+            onAdminLogin={handleAdminLogin}
           />
         )}
         {/* Training Records */}
