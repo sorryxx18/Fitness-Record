@@ -1,7 +1,6 @@
 export const pages = [
   { id: 'dashboard', label: '總覽', icon: 'ri-dashboard-line' },
   { id: 'records', label: '成績查詢', icon: 'ri-file-list-3-line' },
-  { id: 'results', label: '換算結果', icon: 'ri-trophy-line' },
   { id: 'analysis', label: '統計分析', icon: 'ri-bar-chart-2-line' },
   { id: 'training', label: '常訓紀錄', icon: 'ri-book-open-line' },
 ];
