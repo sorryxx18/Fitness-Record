@@ -25,14 +25,14 @@ export function LineChart({ labels, datasets }) {
   return <canvas ref={ref} />;
 }
 
-export function BarChart({ labels, datasets, yCallback }) {
+export function BarChart({ labels, datasets, yCallback, showLegend, yMax }) {
   const ref = useRef(null);
   useChart(ref, 'bar', { labels, datasets }, {
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    plugins: { legend: { display: !!showLegend, labels: { font: CHART_FONT, boxWidth: 12 } } },
     scales: {
       x: { ticks: { font: CHART_FONT } },
-      y: { min: 0, max: 100, ticks: { font: CHART_FONT, callback: yCallback || (v => v + '%') } },
+      y: { min: 0, max: yMax ?? 100, ticks: { font: CHART_FONT, callback: yCallback || (v => v) } },
     },
   });
   return <canvas ref={ref} />;
