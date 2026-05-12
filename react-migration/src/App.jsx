@@ -16,7 +16,6 @@ import { ExportModal } from './components/ExportModal.jsx';
 import { TrainingPage } from './pages/TrainingPage.jsx';
 import { DashboardPage } from './pages/DashboardPage.jsx';
 import { RecordsPage } from './pages/RecordsPage.jsx';
-import { ResultsPage } from './pages/ResultsPage.jsx';
 import { AnalysisPage } from './pages/AnalysisPage.jsx';
 
 // ── main App ────────────────────────────────────────────────
@@ -45,7 +44,6 @@ export function App() {
   const [unit, setUnit] = useState('all');
   const [search, setSearch] = useState('');
   const [recPage, setRecPage] = useState(1);
-  const [resPage, setResPage] = useState(1);
 
   const [editTarget, setEditTarget] = useState(null); // null=closed, {}=new, record=editing
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -199,7 +197,7 @@ export function App() {
     XLSX.writeFile(wb, '常訓體能成績匯入範本.xlsx');
   }
 
-  function resetPages() { setRecPage(1); setResPage(1); }
+  function resetPages() { setRecPage(1); }
   function showMsg(text) { setMsg(text); setTimeout(() => setMsg(''), 4000); }
 
   function handleAdminLogin() {
@@ -354,7 +352,6 @@ export function App() {
   }
 
   const pagedRec = filtered.slice((recPage - 1) * PAGE_SIZE, recPage * PAGE_SIZE);
-  const pagedRes = filtered.slice((resPage - 1) * PAGE_SIZE, resPage * PAGE_SIZE);
 
   const btnStyle = (color = '#dc2626') => ({ border: `1px solid ${color}`, background: color, color: '#fff', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 13 });
   const outlineStyle = (color = '#64748b') => ({ border: `1px solid ${color}`, background: '#fff', color, borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13 });
@@ -391,7 +388,7 @@ export function App() {
         <div className={loading ? 'progress-bar active' : 'progress-bar'} />
 
         {/* Shared toolbar */}
-        {['dashboard', 'records', 'results'].includes(page) && (
+        {['dashboard', 'records'].includes(page) && (
           <section style={{ paddingBottom: 0 }}>
             <div className="toolbar">
               <button style={btnStyle('#475569')} onClick={handleLoadData} disabled={loading}>
@@ -445,23 +442,6 @@ export function App() {
             recPage={recPage}
             setRecPage={setRecPage}
             setEditTarget={setEditTarget}
-          />
-        )}
-
-        {/* Results */}
-        {page === 'results' && (
-          <ResultsPage
-            period={period}
-            setPeriod={setPeriod}
-            brigade={brigade}
-            setBrigade={setBrigade}
-            squad={squad}
-            setSquad={setSquad}
-            resetPages={resetPages}
-            pagedRes={pagedRes}
-            filtered={filtered}
-            resPage={resPage}
-            setResPage={setResPage}
           />
         )}
 
