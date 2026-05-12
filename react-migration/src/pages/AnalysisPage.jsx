@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BRIGADES, calcRecord } from '../lib/fitnessCore.js';
 import { SCORE_COLS } from '../constants/appConstants.js';
-import { BarChart } from '../components/Charts.jsx';
+import { BarChart, LineChart } from '../components/Charts.jsx';
 import { ScoreBadge, PassBadge } from '../components/badges.jsx';
 
 // ── AnalysisPanel ────────────────────────────────────────────
