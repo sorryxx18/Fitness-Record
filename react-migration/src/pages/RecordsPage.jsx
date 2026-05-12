@@ -31,12 +31,6 @@ export function RecordsPage({ isAdmin, onAdminLogin, period, setPeriod, brigade,
     borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 13,
   });
 
-  function handleSearchFocus() {
-    if (!isAdmin && onAdminLogin) {
-      onAdminLogin();
-    }
-  }
-
   return (
     <section>
       {!isAdmin && (
@@ -51,10 +45,9 @@ export function RecordsPage({ isAdmin, onAdminLogin, period, setPeriod, brigade,
         squad={squad} setSquad={setSquad}
         unit={unit} setUnit={setUnit}
         search={isAdmin ? search : ''}
-        setSearch={isAdmin ? setSearch : () => {}}
+        setSearch={isAdmin ? setSearch : (v) => { if (v) handleSearchFocus(); }}
         onReset={resetPages}
-        searchPlaceholder={isAdmin ? '搜尋姓名' : '🔒 搜尋姓名（需解鎖）'}
-        onSearchFocus={handleSearchFocus}
+        searchPlaceholder={isAdmin ? '搜尋姓名' : '🔒 搜尋姓名（輸入後解鎖）'}
       />
 
       {/* 切換按鈕（管理者才顯示） */}
@@ -74,7 +67,7 @@ export function RecordsPage({ isAdmin, onAdminLogin, period, setPeriod, brigade,
         {!isAdmin && (
           <table>
             <thead>
-              <tr><th>大隊</th><th>中隊</th><th>分隊</th><th>姓名</th><th>性別</th><th>及格狀態</th></tr>
+              <tr><th>大隊</th><th>中隊</th><th>分隊</th><th>姓名</th><th>性別</th><th>及格狀態</th><th></th></tr>
             </thead>
             <tbody>
               {pagedRec.map(r => {
@@ -84,6 +77,11 @@ export function RecordsPage({ isAdmin, onAdminLogin, period, setPeriod, brigade,
                     <td>{r.brigade}</td><td>{r.squad || getSquadForUnit(r.unit)}</td><td>{r.unit}</td>
                     <td>{maskName(r.name)}</td><td>{r.gender}</td>
                     <td><PassBadge pass={s.pass} /></td>
+                    <td>
+                      <button onClick={onAdminLogin} style={{ border: '1px solid #94a3b8', background: '#f8fafc', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <i className="ri-lock-line" style={{ fontSize: 11 }} />查看
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
