@@ -45,7 +45,7 @@ export function RecordsPage({ isAdmin, onAdminLogin, period, setPeriod, brigade,
         squad={squad} setSquad={setSquad}
         unit={unit} setUnit={setUnit}
         search={isAdmin ? search : ''}
-        setSearch={isAdmin ? setSearch : (v) => { if (v) handleSearchFocus(); }}
+        setSearch={isAdmin ? setSearch : (v) => { if (v) onAdminLogin?.(); }}
         onReset={resetPages}
         searchPlaceholder={isAdmin ? '搜尋姓名' : '🔒 搜尋姓名（輸入後解鎖）'}
       />
