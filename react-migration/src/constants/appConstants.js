@@ -1,8 +1,8 @@
 export const pages = [
   { id: 'dashboard', label: '總覽', icon: 'ri-dashboard-line' },
-  { id: 'records', label: '成績查詢', icon: 'ri-file-list-3-line' },
-  { id: 'analysis', label: '統計分析', icon: 'ri-bar-chart-2-line' },
   { id: 'training', label: '常訓紀錄', icon: 'ri-book-open-line' },
+  { id: 'analysis', label: '統計分析', icon: 'ri-bar-chart-2-line' },
+  { id: 'records', label: '成績查詢', icon: 'ri-file-list-3-line' },
 ];
 
 export const PAGE_SIZE = 50;
